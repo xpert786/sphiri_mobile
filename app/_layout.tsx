@@ -1,24 +1,24 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ProfileProvider } from '@/context/ProfileContext';
+import { useAppFonts } from '@/hooks/useAppFonts';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import React from 'react';
+import 'react-native-gesture-handler';
+import Toast from 'react-native-toast-message';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+   const [fontsLoaded] = useAppFonts();
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+  if (!fontsLoaded) {
+    return null;
+  }
+
+   return (
+     <ProfileProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+      <Toast topOffset={60} /> 
+    </ProfileProvider>
   );
 }
+
+
