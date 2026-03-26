@@ -43,6 +43,7 @@ type CommonHeaderProps = {
     showBackArrow?: boolean;
     tapOnBack?: () => void;
     titleStyles?: StyleProp<TextStyle>;
+    renderRight?: () => React.ReactNode;
 };
 
 const Header: React.FC<CommonHeaderProps> = ({
@@ -52,7 +53,8 @@ const Header: React.FC<CommonHeaderProps> = ({
     containerStyle,
     showBackArrow = true,
     tapOnBack,
-    titleStyles
+    titleStyles,
+    renderRight
 }) => {
     const navigation = useNavigation();
     const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -173,6 +175,7 @@ const Header: React.FC<CommonHeaderProps> = ({
 
                 {/* RIGHT SIDE */}
                 <View style={[styles.headerActions]}>
+                    {renderRight && renderRight()}
 
                     {showMenu && (
                         <TouchableOpacity

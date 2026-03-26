@@ -745,11 +745,11 @@ const styles = StyleSheet.create({
     },
     activeTab: {
         backgroundColor: ColorConstants.WHITE,
-        elevation: 2,
+        elevation: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 8,
     },
     tabText: {
         fontFamily: Fonts.ManropeMedium,
@@ -1198,7 +1198,7 @@ const styles = StyleSheet.create({
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 12,
         elevation: 5,
     },
     popupMenuItem: {

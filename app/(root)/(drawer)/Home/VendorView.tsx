@@ -333,10 +333,10 @@ const styles = StyleSheet.create({
     borderColor: ColorConstants.GRAY3,
 
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 4,
 
   },
   statHeader: {

@@ -705,11 +705,11 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         // Shadow for iOS
         // shadowColor: '#000',
-        // shadowOffset: { width: 0, height: 1 },
-        // shadowOpacity: 0.05,
-        // shadowRadius: 2,
+        // shadowOffset: { width: 0, height: 4 },
+        // shadowOpacity: 0.10,
+        // shadowRadius: 8,
         // // Shadow for Android
-        // elevation: 2,
+        // elevation: 5,
     },
     contentBox: {
         backgroundColor: ColorConstants.WHITE,
@@ -720,11 +720,11 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         // Shadow for iOS
         // shadowColor: '#000',
-        // shadowOffset: { width: 0, height: 1 },
-        // shadowOpacity: 0.05,
-        // shadowRadius: 2,
+        // shadowOffset: { width: 0, height: 4 },
+        // shadowOpacity: 0.10,
+        // shadowRadius: 8,
         // // Shadow for Android
-        // elevation: 2,
+        // elevation: 5,
     },
     statusTitle: {
         fontSize: 20,
@@ -805,10 +805,10 @@ const styles = StyleSheet.create({
     activeTabItem: {
         backgroundColor: ColorConstants.WHITE,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 1,
-        elevation: 1,
+        elevation: 4,
     },
     tabText: {
         fontSize: 14,

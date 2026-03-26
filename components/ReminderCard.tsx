@@ -88,14 +88,14 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     reminderTitle: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 12,
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 13,
         color: ColorConstants.BLACK2,
         flex: 1,
     },
     reminderDetail: {
         fontFamily: Fonts.mulishRegular,
-        fontSize: 10,
+        fontSize: 12,
         color: ColorConstants.DARK_CYAN,
         marginBottom: -13
     },

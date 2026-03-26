@@ -44,8 +44,84 @@ export const styles = StyleSheet.create({
         borderColor: '#E5E7EB',
         borderRadius: 8,
         paddingHorizontal: 12,
-        height: 40,
+        height: 44, // Increased height for better alignment
         backgroundColor: ColorConstants.WHITE,
+        width: '65%'
+    },
+    searchAndShowRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginBottom: 12,
+        gap: 10,
+    },
+    showLabel: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: '#4B5563',
+    },
+    showDropdownTrigger: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 1.5,
+        borderColor: ColorConstants.GRAY,
+        borderRadius: 7,
+        paddingHorizontal: 10,
+        height: 38,
+        backgroundColor: ColorConstants.WHITE,
+        minWidth: 70,
+    },
+    showDropdownText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 13,
+        color: ColorConstants.BLACK,
+        marginRight: 4,
+    },
+    showDropdownArrow: {
+        width: 12,
+        height: 12,
+        tintColor: ColorConstants.BLACK,
+        resizeMode: 'contain',
+    },
+    itemsDropdownOverlay: {
+        position: 'absolute',
+        top: 48,
+        right: 0,
+        backgroundColor: '#EFEBE7', // Matching the screenshot background if possible, or stay with light gray
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        width: 80,
+        zIndex: 3000,
+        elevation: 10,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        paddingVertical: 5,
+    },
+    itemsDropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center', // Center everything
+        paddingVertical: 4, // Reduced vertical gap
+        paddingHorizontal: 12,
+        position: 'relative', // For absolute child
+    },
+    itemsDropdownItemText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: ColorConstants.BLACK,
+        textAlign: 'center',
+    },
+    checkIcon: {
+        position: 'absolute',
+        left: 10,
+        width: 14,
+        height: 14,
+        tintColor: ColorConstants.BLACK,
+        resizeMode: 'contain',
     },
     searchIcon: {
         width: 14,

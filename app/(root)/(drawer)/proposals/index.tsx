@@ -185,11 +185,11 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3,
-        elevation: 2,
+        elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 12,
     },
     proposalTitle: {
         fontFamily: 'Manrope-SemiBold',

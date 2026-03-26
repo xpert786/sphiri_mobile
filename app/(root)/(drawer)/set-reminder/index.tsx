@@ -1207,10 +1207,10 @@ const styles = StyleSheet.create({
     activeViewOption: {
         backgroundColor: ColorConstants.WHITE,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowRadius: 8,
+        elevation: 5,
     },
     viewOptionText: {
         fontFamily: Fonts.ManropeMedium,
@@ -1342,10 +1342,10 @@ const styles = StyleSheet.create({
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 12,
         padding: 5,
-        elevation: 2,
+        elevation: 5,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowOpacity: 0.10,
+        shadowRadius: 12,
         shadowOffset: { width: 0, height: 2 },
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3

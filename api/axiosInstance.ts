@@ -17,7 +17,7 @@ export const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem(StringConstants.ACCESS_TOKEN);
-    // console.log("token in axiosInstance:", token);
+    console.log("token in axiosInstance:", token);
 
 
     if (token && config.headers) {

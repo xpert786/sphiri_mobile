@@ -270,13 +270,13 @@ export const styles = StyleSheet.create({
     },
 
     name: {
-        fontFamily: Fonts.interMedium,
-        fontSize: 12,
+        fontFamily: Fonts.interSemiBold,
+        fontSize: 13,
         color: ColorConstants.DARK_CYAN,
     },
     date: {
         fontFamily: Fonts.interRegular,
-        fontSize: 10,
+        fontSize: 12,
         color: ColorConstants.DARK_CYAN,
         marginBottom: 5
     },
@@ -289,7 +289,7 @@ export const styles = StyleSheet.create({
     },
     activeClient: {
         fontFamily: 'Inter-Regular',
-        fontSize: 11,
+        fontSize: 12,
         color: ColorConstants.WHITE
     },
 
@@ -325,7 +325,7 @@ export const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontFamily: 'SFPro-Medium',
-        fontSize: 14,
+        fontSize: 16,
         color: ColorConstants.BLACK,
         marginBottom: 12,
     },

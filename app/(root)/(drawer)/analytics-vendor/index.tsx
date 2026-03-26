@@ -467,10 +467,10 @@ const styles = StyleSheet.create({
     activeTabButton: {
         backgroundColor: ColorConstants.PRIMARY_BROWN,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowRadius: 8,
+        elevation: 5,
     },
     tabText: {
         fontFamily: Fonts.ManropeMedium,

@@ -60,7 +60,8 @@ export type Contact = {
     website: string;
     emergency_contact: string;
     notes?: string;
-    category?: string
+    category?: string;
+    properties?: { id: number; name: string; full_address: string }[];
 };
 
 type DropdownItem = {
@@ -85,11 +86,13 @@ export default function Contacts() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('All categories');
     const [selectedTag, setSelectedTag] = useState('All Tags');
+    const [selectedProperty, setSelectedProperty] = useState('All Properties');
     const [searchQuery, setSearchQuery] = useState('');
     const [shareModalVisible, setShareModalVisible] = useState(false);
     const [apiCategories, setApiCategories] = useState<DropdownItem[]>([]);
     const [flatCategories, setFlatCategories] = useState<DropdownItem[]>([]);
     const [apiTags, setApiTags] = useState<DropdownItem[]>([]);
+    const [apiProperties, setApiProperties] = useState<DropdownItem[]>([]);
     const [loadingFilters, setLoadingFilters] = useState(false);
     const [apiContacts, setApiContacts] = useState<Contact[]>([]);
     const [loadingContacts, setLoadingContacts] = useState(false);
@@ -106,7 +109,7 @@ export default function Contacts() {
     const [loadingPersonalContacts, setLoadingPersonalContacts] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 5;
+    const pageSize = 6;
 
     useFocusEffect(
         useCallback(() => {
@@ -138,7 +141,7 @@ export default function Contacts() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [activeTab, searchQuery, selectedCategory, selectedTag]);
+    }, [activeTab, searchQuery, selectedCategory, selectedTag, selectedProperty]);
 
     const flattenCategories = (categories: any[], depth = 0): DropdownItem[] => {
         let result: DropdownItem[] = [];
@@ -162,45 +165,70 @@ export default function Contacts() {
     };
 
     const fetchFilters = async (activeTab?: 'personal' | 'vendor') => {
-        console.log('activeTab in fetchFilters:', activeTab)
-        let url = activeTab == 'vendor' ? ApiConstants.VENDOR_PROFESSIONAL_CATEGORIES_SEED : ApiConstants.VENDOR_CATEGORIES;
+        console.log('activeTab in fetchFilters:', activeTab);
+        setLoadingFilters(true);
+
+        const fetchCategories = async () => {
+            const url = ApiConstants.VENDOR_CATEGORIES;
+            // const url = activeTab === 'vendor' ? ApiConstants.VENDOR_PROFESSIONAL_CATEGORIES_SEED : ApiConstants.VENDOR_CATEGORIES;
+            try {
+                const res = await apiGet(url);
+                if (res.status === 200 || res.status === 201) {
+                    const categoriesData = res.data?.seeded || res.data || [];
+                    const flattened = flattenCategories(categoriesData);
+                    setApiCategories([
+                        { label: 'All categories', value: 'all', originalName: 'All categories' },
+                        ...flattened
+                    ]);
+                }
+            } catch (error) {
+                console.log('Error fetching categories:', error);
+                setApiCategories([{ label: 'All categories', value: 'all', originalName: 'All categories' }]);
+            }
+        };
+
+        const fetchTags = async () => {
+            const url = ApiConstants.VENDOR_TAGS
+            try {
+                const res = await apiGet(url);
+                if (res.status === 200 || res.status === 201) {
+                    const tagData = res.data || [];
+                    const formattedTags: DropdownItem[] = [
+                        { label: 'All Tags', value: 'all' },
+                        ...(Array.isArray(tagData) ? tagData : []).map((item: any) => ({
+                            label: item.name || item.label,
+                            value: item.id?.toString() || item.value
+                        }))
+                    ];
+                    setApiTags(formattedTags);
+                }
+            } catch (error) {
+                console.log('Error fetching tags:', error);
+                setApiTags([{ label: 'All Tags', value: 'all' }]);
+            }
+        };
+
+        const fetchProperties = async () => {
+            try {
+                const res = await apiGet(ApiConstants.PROPERTIES);
+                if (res.status === 200 || res.status === 201) {
+                    const formattedProps: DropdownItem[] = [
+                        { label: 'All Properties', value: 'all' },
+                        ...(res.data?.results || []).map((item: any) => ({
+                            label: item.name,
+                            value: item.id?.toString()
+                        }))
+                    ];
+                    setApiProperties(formattedProps);
+                }
+            } catch (error) {
+                console.log('Error fetching properties:', error);
+                setApiProperties([{ label: 'All Properties', value: 'all' }]);
+            }
+        };
+
         try {
-            setLoadingFilters(true);
-            const [catRes, tagRes] = await Promise.all([
-                apiGet(url),
-                apiGet(ApiConstants.VENDOR_TAGS)
-            ]);
-
-            if (catRes.status === 200 || catRes.status === 201) {
-                // Handle different response structures:
-                // VENDOR_PROFESSIONAL_CATEGORIES_SEED returns { message: "...", seeded: [...] }
-                // VENDOR_CATEGORIES might return the array directly or in a similar property.
-                const categoriesData = catRes.data?.seeded || catRes.data || [];
-                const flattened = flattenCategories(categoriesData);
-                const formattedCats: DropdownItem[] = [
-                    { label: 'All categories', value: 'all', originalName: 'All categories' },
-                    ...flattened
-                ];
-
-                console.log("formattedCats:", formattedCats);
-                setApiCategories(formattedCats);
-            }
-
-            if (tagRes.status === 200 || tagRes.status === 201) {
-                const formattedTags: DropdownItem[] = [
-                    { label: 'All Tags', value: 'all' },
-                    ...(tagRes.data || []).map((item: any) => ({
-                        label: item.name || item.label,
-                        value: item.id?.toString() || item.value
-                    }))
-                ];
-                setApiTags(formattedTags);
-            }
-        } catch (error) {
-            console.log('Error fetching filters:', error);
-            // Fallback to minimal data if API fails completely to prevent broken UI
-            setApiCategories([{ label: 'All categories', value: 'all' }]);
-            setApiTags([{ label: 'All Tags', value: 'all' }]);
+            await Promise.allSettled([fetchCategories(), fetchTags(), fetchProperties()]);
         } finally {
             setLoadingFilters(false);
         }
@@ -210,7 +238,7 @@ export default function Contacts() {
         try {
             setLoadingPersonalContacts(true);
             const res = await apiGet(ApiConstants.PERSONAL_CONTACTS_LIST);
-            console.log("response in personal contacts list:", JSON.stringify(res.data));
+            // console.log("response in personal contacts list:", JSON.stringify(res.data));
 
             if (res.status === 200 || res.status === 201) {
                 const sortedData = (res.data || []).sort((a: any, b: any) => b.id - a.id);
@@ -227,7 +255,7 @@ export default function Contacts() {
         try {
             setLoadingContacts(true);
             const res = await apiGet(ApiConstants.VENDORS_LIST_CONTACTS);
-            console.log("response in vendors list contacts:", JSON.stringify(res.data));
+            // console.log("response in vendors list contacts:", JSON.stringify(res.data));
 
             if (res.status === 200 || res.status === 201) {
                 const sortedData = (res.data || []).sort((a: any, b: any) => b.id - a.id);
@@ -403,7 +431,10 @@ export default function Contacts() {
         const matchesTag = selectedTag === 'All Tags' ||
             contact.tags?.some(tag => tag.name === selectedTag);
 
-        return matchesSearch && matchesCategory && matchesTag;
+        const matchesProperty = selectedProperty === 'All Properties' ||
+            contact.properties?.some(p => p.name === selectedProperty || p.id.toString() === selectedProperty);
+
+        return matchesSearch && matchesCategory && matchesTag && matchesProperty;
     });
 
     useEffect(() => {
@@ -449,7 +480,8 @@ export default function Contacts() {
 
                     <View style={styles.contactInfo}>
                         <Text style={styles.contactName}>{capitalizeFirstLetter(item.name) || "Vendor"}</Text>
-                        {item.category_name && <Text style={styles.contactCompany}>{item.category_name}</Text>}
+                        {item?.category && <Text style={styles.contactCompany}>{item.category}</Text>}
+                        {item?.company && <Text style={styles.contactCompany}>{item.company}</Text>}
                     </View>
 
                     <View style={styles.contactActions}>
@@ -467,6 +499,14 @@ export default function Contacts() {
                                 onPress={() => Linking.openURL(`mailto:${item.email}`)}
                             >
                                 <MaterialIcons name="email" size={18} color={ColorConstants.PRIMARY_BROWN} />
+                            </TouchableOpacity>
+                        ) : null}
+                        {item.website ? (
+                            <TouchableOpacity
+                                style={styles.actionIconButton}
+                                onPress={() => Linking.openURL(item.website)}
+                            >
+                                <Image source={Icons.ic_open_link} style={{ width: 18, height: 18, tintColor: ColorConstants.PRIMARY_BROWN }} />
                             </TouchableOpacity>
                         ) : null}
                     </View>
@@ -682,6 +722,18 @@ export default function Contacts() {
                         value={selectedTag}
                         onSelect={(val) => setSelectedTag(val)}
                         placeholder="Select Tag"
+                        dropdownWidth={180}
+                    />
+                </View>
+
+                <View style={[styles.dropdownWrapper, { flex: 1.2 }]}>
+                    <AppDropdown
+                        label=""
+                        data={apiProperties.map(p => p.label)}
+                        value={selectedProperty}
+                        onSelect={(val) => setSelectedProperty(val)}
+                        placeholder="Select Property"
+                        dropdownWidth={150}
                     />
                 </View>
             </View>
@@ -716,7 +768,7 @@ export default function Contacts() {
                     />
 
                     {/* Pagination Controls */}
-                    {filteredContacts.length > 10 && !(activeTab === 'personal' ? loadingPersonalContacts : loadingContacts) && (
+                    {filteredContacts.length > pageSize && !(activeTab === 'personal' ? loadingPersonalContacts : loadingContacts) && (
                         <View style={styles.paginationContainer}>
                             <TouchableOpacity
                                 style={[

@@ -13,6 +13,7 @@ export const DRAWER_CONFIG: Record<UserRole, DrawerItemConfig[]> = {
 
 
     home_owner: [
+        { label: 'Getting Started', route: '/(root)/(drawer)/getting-started', icon: Icons.ic_info },
         { label: 'Dashboard', route: '/(root)/(drawer)/Home', icon: Icons.ic_dashboard },
         { label: 'Vendors & Contacts', route: '/(root)/(drawer)/(contacts)/contacts', icon: Icons.ic_contacts },
         { label: 'Messages', route: '/(root)/(drawer)/(homemessage)/homemessage', icon: Icons.ic_chat },

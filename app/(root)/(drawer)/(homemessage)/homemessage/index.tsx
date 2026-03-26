@@ -466,11 +466,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         // Shadow for iOS
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.10,
+        shadowRadius: 8,
         // Elevation for Android
-        elevation: 1,
+        elevation: 4,
     },
     cardSelected: {
         backgroundColor: '#FEF8F4', // Light peach background (approximation from design)

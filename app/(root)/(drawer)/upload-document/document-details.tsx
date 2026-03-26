@@ -34,6 +34,9 @@ interface DocumentDetailsData {
     tags: string;
     created_at: string;
     updated_at: string;
+    linked_family_members?: any[];
+    linked_vendors?: any[];
+    linked_personal_contacts?: any[];
 }
 
 interface DocumentVersion {
@@ -247,7 +250,6 @@ export default function DocumentDetails() {
                     <Text style={styles.infoLabel}>Tags</Text>
                     <View style={styles.tagsRow}>
                         {(() => {
-                            // Use tag_names (array of names) first, fall back to tags string only if tag_names is empty
                             const tags = Array.isArray(documentDetails?.tag_names) && documentDetails.tag_names.length > 0
                                 ? documentDetails.tag_names
                                 : (typeof documentDetails?.tags === 'string' && documentDetails.tags
@@ -263,6 +265,54 @@ export default function DocumentDetails() {
                             }
                             return <Text style={styles.infoValue}>No tags</Text>;
                         })()}
+                    </View>
+                </View>
+
+                {/* Linked Family Member */}
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Linked Family Member</Text>
+                    <View style={styles.tagsRow}>
+                        {documentDetails?.linked_family_members && documentDetails.linked_family_members.length > 0 ? (
+                            documentDetails.linked_family_members.map((member, index) => (
+                                <View key={index} style={styles.familyChipView}>
+                                    <Text style={styles.familyText}>{typeof member === 'object' ? member.name : member}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <Text style={styles.infoValue}>No family members linked</Text>
+                        )}
+                    </View>
+                </View>
+
+                {/* Linked Professional contact */}
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Linked Professional contact</Text>
+                    <View style={styles.tagsRow}>
+                        {documentDetails?.linked_vendors && documentDetails.linked_vendors.length > 0 ? (
+                            documentDetails.linked_vendors.map((vendor, index) => (
+                                <View key={index} style={styles.professionalChipView}>
+                                    <Text style={styles.professionalText}>{typeof vendor === 'object' ? vendor.name : vendor}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <Text style={styles.infoValue}>No professional contacts linked</Text>
+                        )}
+                    </View>
+                </View>
+
+                {/* Linked Personal Contact */}
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Linked Personal Contact</Text>
+                    <View style={styles.tagsRow}>
+                        {documentDetails?.linked_personal_contacts && documentDetails.linked_personal_contacts.length > 0 ? (
+                            documentDetails.linked_personal_contacts.map((contact, index) => (
+                                <View key={index} style={styles.personalChipView}>
+                                    <Text style={styles.personalText}>{typeof contact === 'object' ? contact.name : contact}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <Text style={styles.infoValue}>No personal contacts linked</Text>
+                        )}
                     </View>
                 </View>
             </View>
@@ -634,7 +684,9 @@ export default function DocumentDetails() {
                     property_id: (documentDetails as any).property || null,
                     issueDate: documentDetails.issue_date,
                     expirationDate: documentDetails.expiration_date,
-                    tags: documentDetails.tags || (Array.isArray(documentDetails.tag_names) ? documentDetails.tag_names.join(', ') : ''),
+                    tags: (Array.isArray(documentDetails.tag_names) && documentDetails.tag_names.length > 0)
+                        ? documentDetails.tag_names.join(', ')
+                        : (documentDetails.tags || ''),
                     note: documentDetails.description,
                     fileType: documentDetails.file_type,
                     fileSize: documentDetails.file_size_display,
@@ -722,10 +774,10 @@ const styles = StyleSheet.create({
     tabButtonActive: {
         backgroundColor: ColorConstants.WHITE,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowRadius: 8,
+        elevation: 5,
     },
 
     tabText: {
@@ -805,7 +857,9 @@ const styles = StyleSheet.create({
     },
     tagsRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
+        rowGap: 8,
         marginTop: 4,
     },
     tag: {
@@ -818,6 +872,45 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.ManropeMedium,
         fontSize: 12,
         color: ColorConstants.BLACK2,
+    },
+    familyChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    familyText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: ColorConstants.PRIMARY_BROWN,
+    },
+    professionalChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    professionalText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: ColorConstants.PRIMARY_BROWN,
+    },
+    personalChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    personalText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: ColorConstants.PRIMARY_BROWN,
     },
 
     // Versions

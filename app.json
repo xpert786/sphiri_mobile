@@ -7,7 +7,7 @@
     "icon": "./assets/icons/ic_app_icon.png",
     "scheme": "sphiri",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sphiri.ios",

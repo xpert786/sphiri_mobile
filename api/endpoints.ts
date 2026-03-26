@@ -114,5 +114,13 @@ export const ApiConstants = {
     VENDOR_HOME_INVENTORY: 'vendor-panel/home-inventory/',
     VENDOR_REMINDERS_API: 'vendor-panel/reminders/',
     TOOLS_REPORTS_GENERATE: 'tools/reports/generate/',
+    CONTACT_TAGS: 'contact-tags/',
+    MAINTENANCE_PLANNER: 'tools/workflows/maintenance-planner/',
+    EMERGENCY_HOME_FILES: 'tools/workflows/emergency-home-file/',
+    INSURANCE_INVENTORY: 'tools/workflows/insurance-inventory/',
+    MOVING_PLANNER: 'tools/workflows/moving-planner/',
+    ESTATE_PREPARATION: 'tools/workflows/estate-preparation/',
+    GENERATE_PDF: 'tools/workflows/generate-pdf/',
+
 
 };

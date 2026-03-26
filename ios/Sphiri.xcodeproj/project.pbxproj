@@ -12,7 +12,7 @@
 		252BEC1A638DF2EF7732EEB8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68332AB1BD98C0A19F280D3D /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		BBEFC9EC6156B16D1A4A8E5C /* libPods-Sphiri.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A2314461C8CBCF046BF082B3 /* libPods-Sphiri.a */; };
+		CA8A7A8FB13E855274C11D71 /* libPods-Sphiri.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE26E716E05555EEADEDC142 /* libPods-Sphiri.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -21,12 +21,12 @@
 		13B07F961A680F5B00A75B9A /* Sphiri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sphiri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Sphiri/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sphiri/Info.plist; sourceTree = "<group>"; };
-		2D9DD745002E7FDCB8ECA7E6 /* Pods-Sphiri.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sphiri.release.xcconfig"; path = "Target Support Files/Pods-Sphiri/Pods-Sphiri.release.xcconfig"; sourceTree = "<group>"; };
 		68332AB1BD98C0A19F280D3D /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sphiri/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		9FAFEC8D3E05E30DE501D312 /* Pods-Sphiri.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sphiri.debug.xcconfig"; path = "Target Support Files/Pods-Sphiri/Pods-Sphiri.debug.xcconfig"; sourceTree = "<group>"; };
-		A2314461C8CBCF046BF082B3 /* libPods-Sphiri.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sphiri.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		983CFD9988C2A83A473EF1C3 /* Pods-Sphiri.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sphiri.debug.xcconfig"; path = "Target Support Files/Pods-Sphiri/Pods-Sphiri.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Sphiri/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		BE3594FA0B955736E0DC309B /* Pods-Sphiri.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sphiri.release.xcconfig"; path = "Target Support Files/Pods-Sphiri/Pods-Sphiri.release.xcconfig"; sourceTree = "<group>"; };
+		CE26E716E05555EEADEDC142 /* libPods-Sphiri.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sphiri.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Sphiri/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Sphiri-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Sphiri-Bridging-Header.h"; path = "Sphiri/Sphiri-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BBEFC9EC6156B16D1A4A8E5C /* libPods-Sphiri.a in Frameworks */,
+				CA8A7A8FB13E855274C11D71 /* libPods-Sphiri.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,7 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				A2314461C8CBCF046BF082B3 /* libPods-Sphiri.a */,
+				CE26E716E05555EEADEDC142 /* libPods-Sphiri.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -116,8 +116,8 @@
 		9293135270187C5DEF47E260 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				9FAFEC8D3E05E30DE501D312 /* Pods-Sphiri.debug.xcconfig */,
-				2D9DD745002E7FDCB8ECA7E6 /* Pods-Sphiri.release.xcconfig */,
+				983CFD9988C2A83A473EF1C3 /* Pods-Sphiri.debug.xcconfig */,
+				BE3594FA0B955736E0DC309B /* Pods-Sphiri.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -138,14 +138,14 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Sphiri" */;
 			buildPhases = (
-				E0BF4326303378A931DCA382 /* [CP] Check Pods Manifest.lock */,
+				9F8F94D6DCCB657C4713C1D7 /* [CP] Check Pods Manifest.lock */,
 				24553765EE39BB782EF00FDA /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				AB94A02B4E94F6FCFB5B6FD3 /* [CP] Embed Pods Frameworks */,
-				B000B08AA3230E55E6A40AFF /* [CP] Copy Pods Resources */,
+				6DB2E3860CDD344CE26D2052 /* [CP] Embed Pods Frameworks */,
+				86A862620E7A4056FEDB082F /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -243,7 +243,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Sphiri/expo-configure-project.sh\"\n";
 		};
-		AB94A02B4E94F6FCFB5B6FD3 /* [CP] Embed Pods Frameworks */ = {
+		6DB2E3860CDD344CE26D2052 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -265,7 +265,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sphiri/Pods-Sphiri-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		B000B08AA3230E55E6A40AFF /* [CP] Copy Pods Resources */ = {
+		86A862620E7A4056FEDB082F /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -301,7 +301,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sphiri/Pods-Sphiri-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		E0BF4326303378A931DCA382 /* [CP] Check Pods Manifest.lock */ = {
+		9F8F94D6DCCB657C4713C1D7 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -340,14 +340,14 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9FAFEC8D3E05E30DE501D312 /* Pods-Sphiri.debug.xcconfig */;
+			baseConfigurationReference = 983CFD9988C2A83A473EF1C3 /* Pods-Sphiri.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Sphiri/Sphiri.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = QF9HU97YFH;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -380,14 +380,14 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2D9DD745002E7FDCB8ECA7E6 /* Pods-Sphiri.release.xcconfig */;
+			baseConfigurationReference = BE3594FA0B955736E0DC309B /* Pods-Sphiri.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Sphiri/Sphiri.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = QF9HU97YFH;
 				INFOPLIST_FILE = Sphiri/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;

@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontFamily: 'SFPro-Medium',
-        fontSize: 14,
+        fontSize: 16,
         color: ColorConstants.BLACK,
         marginBottom: 12,
     },

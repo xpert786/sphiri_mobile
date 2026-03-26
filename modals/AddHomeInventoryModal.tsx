@@ -51,9 +51,11 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
     // const [showServiceAgreementDropdown, setShowServiceAgreementDropdown] = useState(false);
     const [showVendorDropdown, setShowVendorDropdown] = useState(false);
 
-    const [categoriesList, setCategoriesList] = useState<any[]>([]);
-    const [serviceAgreementsList, setServiceAgreementsList] = useState<any[]>([]);
     const [vendorsList, setVendorsList] = useState<any[]>([]);
+    const [rawCategories, setRawCategories] = useState<any[]>([]);
+    const [selectedParentCategory, setSelectedParentCategory] = useState<any>(null);
+    const [selectedSubCategory, setSelectedSubCategory] = useState<any>(null);
+    const [selectedDetailedCategory, setSelectedDetailedCategory] = useState<any>(null);
 
     const [selectedFiles, setSelectedFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
     const [loading, setLoading] = useState(false);
@@ -79,7 +81,8 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
                 setVendorsList(contactsRes.data || []);
             }
             if (categoriesRes.data) {
-                setCategoriesList(Array.isArray(categoriesRes.data) ? categoriesRes.data : categoriesRes.data.results || []);
+                const data = Array.isArray(categoriesRes.data) ? categoriesRes.data : categoriesRes.data.results || [];
+                setRawCategories(data);
             }
         } catch (error) {
             console.error('Error fetching options in HomeInventoryModal:', error);
@@ -121,11 +124,169 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
         }
     };
 
+    const handleCategorySelect = (item: any, level: number) => {
+        // Toggle logic
+        const currentSelected = [selectedParentCategory, selectedSubCategory, selectedDetailedCategory][level - 1];
+        if (currentSelected?.id === item.id) {
+            if (level === 1) {
+                setSelectedParentCategory(null);
+                setSelectedSubCategory(null);
+                setSelectedDetailedCategory(null);
+            } else if (level === 2) {
+                setSelectedSubCategory(null);
+                setSelectedDetailedCategory(null);
+            } else {
+                setSelectedDetailedCategory(null);
+            }
+            setCategory('');
+            setCategoryName('');
+            return;
+        }
+
+        // Selection logic
+        if (level === 1) {
+            setSelectedParentCategory(item);
+            setSelectedSubCategory(null);
+            setSelectedDetailedCategory(null);
+        } else if (level === 2) {
+            setSelectedSubCategory(item);
+            setSelectedDetailedCategory(null);
+        } else {
+            setSelectedDetailedCategory(item);
+        }
+
+        if (!item.subcategories || item.subcategories.length === 0) {
+            setCategory(item.id.toString());
+            setCategoryName(item.name);
+        } else {
+            setCategory('');
+            setCategoryName('');
+        }
+    };
+
+    const renderCategorySelection = () => {
+        const categoriesToRender = Array.isArray(rawCategories) ? rawCategories : [];
+
+        return (
+            <>
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Category</Text>
+                    <View style={styles.categoryGridContainer}>
+                        {categoriesToRender.map((cat, idx) => {
+                            const isLastItem = idx === categoriesToRender.length - 1;
+                            const isOddCount = categoriesToRender.length % 2 !== 0;
+                            return (
+                                <TouchableOpacity
+                                    key={idx}
+                                    style={[
+                                        styles.categoryGridItem,
+                                        isLastItem && isOddCount && styles.fullWidthGridItem,
+                                        selectedParentCategory?.id === cat.id && styles.selectedCategoryGridItem
+                                    ]}
+                                    onPress={() => handleCategorySelect(cat, 1)}
+                                >
+                                    <Text style={[
+                                        styles.categoryGridText,
+                                        selectedParentCategory?.id === cat.id && styles.selectedCategoryGridText
+                                    ]}>
+                                        {cat.name}
+                                    </Text>
+                                    {selectedParentCategory?.id === cat.id && (
+                                        <View>
+                                            <Image source={Icons.ic_check} style={styles.checkIconSmall} />
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                    {errors.category ? <Text style={styles.errorText}>{errors.category}</Text> : null}
+                </View>
+
+                {selectedParentCategory && selectedParentCategory.subcategories && selectedParentCategory.subcategories.length > 0 && (
+                    <View style={styles.subcategoryWrapper}>
+                        <Text style={styles.subcategoryTitle}>Subcategory for {selectedParentCategory.name}</Text>
+                        <View style={styles.subcategoryBox}>
+                            <View style={styles.subcategoryChipRow}>
+                                {selectedParentCategory.subcategories.map((sub: any, idx: number) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[
+                                            styles.subCatChip,
+                                            selectedSubCategory?.id === sub.id && styles.activeSubCatChip
+                                        ]}
+                                        onPress={() => handleCategorySelect(sub, 2)}
+                                    >
+                                        <Text style={[
+                                            styles.subCatChipText,
+                                            selectedSubCategory?.id === sub.id && styles.activeSubCatChipText
+                                        ]}>
+                                            {sub.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {selectedSubCategory && selectedSubCategory.subcategories && selectedSubCategory.subcategories.length > 0 && (
+                                <View style={styles.detailedCatRow}>
+                                    {selectedSubCategory.subcategories.map((detailed: any, idx: number) => (
+                                        <TouchableOpacity
+                                            key={idx}
+                                            style={[
+                                                styles.detailedCatChip,
+                                                selectedDetailedCategory?.id === detailed.id && styles.activeDetailedCatChip
+                                            ]}
+                                            onPress={() => handleCategorySelect(detailed, 3)}
+                                        >
+                                            <Text style={[
+                                                styles.detailedCatChipText,
+                                                selectedDetailedCategory?.id === detailed.id && styles.activeDetailedCatChipText
+                                            ]}>
+                                                {detailed.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
+
+                {(selectedParentCategory || selectedSubCategory || selectedDetailedCategory) && (
+                    <View style={styles.selectedPathBox}>
+                        <Image source={Icons.ic_check} style={styles.pathCheckIcon} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.pathLabel}>
+                                Selected: <Text style={styles.pathValue}>
+                                    {[
+                                        selectedParentCategory?.name,
+                                        selectedSubCategory?.name,
+                                        selectedDetailedCategory?.name
+                                    ].filter(Boolean).join(' / ')}
+                                </Text>
+                            </Text>
+                        </View>
+                    </View>
+                )}
+            </>
+        );
+    };
+
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
 
         if (!name.trim()) newErrors.name = 'Item name is required';
-        if (!categoryName) newErrors.category = 'Please select a category';
+        if (!categoryName) {
+            if (!selectedParentCategory) {
+                newErrors.category = 'Please select a category';
+            } else if (selectedParentCategory.subcategories?.length > 0 && !selectedSubCategory) {
+                newErrors.category = 'Please select a subcategory';
+            } else if (selectedSubCategory?.subcategories?.length > 0 && !selectedDetailedCategory) {
+                newErrors.category = 'Please select a detailed category';
+            } else {
+                newErrors.category = 'Please select a category';
+            }
+        }
         if (!purchaseDate) newErrors.purchaseDate = 'Please select purchase date';
         if (!estimatedValue.trim()) newErrors.estimatedValue = 'Estimated value is required';
         if (!serialNumber.trim()) newErrors.serialNumber = 'Serial / Model # is required';
@@ -170,7 +331,10 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
             });
 
             formData.append('name', name);
-            formData.append('category', categoryName);
+            formData.append('category', selectedParentCategory?.name || '');
+            formData.append('category_id', selectedParentCategory?.id?.toString() || '');
+            formData.append('subcategory', selectedDetailedCategory?.name || selectedSubCategory?.name || '');
+            formData.append('subcategory_id', selectedDetailedCategory?.id?.toString() || selectedSubCategory?.id?.toString() || '');
             formData.append('room', location);
 
             // Format date as YYYY-MM-DD
@@ -213,6 +377,9 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
         setName('');
         setCategory('');
         setCategoryName('');
+        setSelectedParentCategory(null);
+        setSelectedSubCategory(null);
+        setSelectedDetailedCategory(null);
         setLocation('');
         setPurchaseDate(null);
         setEstimatedValue('');
@@ -266,49 +433,7 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
                                     error={errors.name}
                                 />
 
-                                {/* Category Dropdown */}
-                                <View style={[styles.inputContainer, { zIndex: 1000 }]}>
-                                    <Text style={styles.label}>Category</Text>
-                                    <TouchableOpacity
-                                        style={styles.dropdownButton}
-                                        onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={[styles.inputText, { color: categoryName ? ColorConstants.BLACK2 : ColorConstants.GRAY }]}>{categoryName || 'Select Category'}</Text>
-                                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                                    </TouchableOpacity>
-
-                                    {showCategoryDropdown && (
-                                        <View style={styles.dropdownList}>
-                                            <ScrollView
-                                                style={styles.dropdownScroll}
-                                                nestedScrollEnabled={true}
-                                                showsVerticalScrollIndicator={true}
-                                            >
-                                                {categoriesList.map((opt) => (
-                                                    <TouchableOpacity
-                                                        key={opt.id}
-                                                        style={styles.dropdownItem}
-                                                        onPress={() => {
-                                                            setCategory(opt.id.toString());
-                                                            setCategoryName(opt.name);
-                                                            setShowCategoryDropdown(false);
-                                                            if (errors.category) setErrors(prev => ({ ...prev, category: '' }));
-                                                        }}
-                                                    >
-                                                        <Text style={styles.dropdownItemText}>{opt.name}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {categoriesList.length === 0 && (
-                                                    <View style={styles.dropdownItem}>
-                                                        <Text style={[styles.dropdownItemText, { color: ColorConstants.GRAY }]}>No categories available</Text>
-                                                    </View>
-                                                )}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                    {errors.category ? <Text style={styles.errorText}>{errors.category}</Text> : null}
-                                </View>
+                                {renderCategorySelection()}
 
                                 <CustomTextInput
                                     label="Location/Room"
@@ -787,6 +912,149 @@ const styles = StyleSheet.create({
         borderColor: ColorConstants.GRAY3,
         borderRadius: 12,
         paddingHorizontal: 16,
+    },
+    categoryGridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+    },
+    categoryGridItem: {
+        width: '47.5%',
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        backgroundColor: '#F9FAFB',
+        position: 'relative',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    fullWidthGridItem: {
+        width: '100%',
+    },
+    selectedCategoryGridItem: {
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
+        borderColor: ColorConstants.PRIMARY_BROWN,
+    },
+    categoryGridText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 13,
+        color: '#374151',
+    },
+    selectedCategoryGridText: {
+        color: ColorConstants.WHITE,
+    },
+    checkIconSmall: {
+        width: 14,
+        height: 14,
+        tintColor: ColorConstants.WHITE,
+    },
+    subcategoryWrapper: {
+        marginTop: 20,
+    },
+    subcategoryTitle: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 16,
+        color: '#1F2937',
+        marginBottom: 12,
+    },
+    subcategoryBox: {
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        backgroundColor: '#F9FAFB',
+    },
+    subcategoryChipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    subCatChip: {
+        paddingVertical: 7,
+        paddingHorizontal: 12,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+        backgroundColor: ColorConstants.WHITE,
+    },
+    activeSubCatChip: {
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
+        borderColor: ColorConstants.WHITE,
+        borderWidth: 2,
+    },
+    subCatChipText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: '#4B5563',
+    },
+    activeSubCatChipText: {
+        color: ColorConstants.WHITE,
+        fontFamily: Fonts.ManropeBold,
+    },
+    detailedCatRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 16,
+        paddingLeft: 12,
+        borderLeftWidth: 2,
+        borderLeftColor: '#FBBF24',
+    },
+    detailedCatChip: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        backgroundColor: '#FFFBEB',
+        borderWidth: 1,
+        borderColor: '#FEF3C7',
+    },
+    activeDetailedCatChip: {
+        backgroundColor: '#FDE68A',
+        borderColor: '#FBBF24',
+    },
+    detailedCatChipText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: '#92400E',
+        textTransform: 'uppercase',
+    },
+    activeDetailedCatChipText: {
+        color: '#78350F',
+    },
+    selectedPathBox: {
+        marginTop: 16,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        padding: 12,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        marginBottom: 20,
+    },
+    pathCheckIcon: {
+        width: 16,
+        height: 16,
+        marginRight: 10,
+        tintColor: '#0F343F',
+        marginTop: 2,
+    },
+    pathLabel: {
+        fontFamily: Fonts.ManropeRegular,
+        fontSize: 13,
+        color: '#374151',
+    },
+    pathValue: {
+        fontFamily: Fonts.ManropeBold,
+        color: '#0F343F',
     },
     row: {
         flexDirection: 'row',

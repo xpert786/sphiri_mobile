@@ -337,8 +337,9 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     const fetchTags = async () => {
         try {
             const res = await apiGet(ApiConstants.VENDOR_TAGS);
+            // console.log("res in fetchTags", JSON.stringify(res));
             if (res.status === 200 || res.status === 201) {
-                const formatted = (res.data || []).map((item: any) => ({
+                const formatted = (res?.data || []).map((item: any) => ({
                     label: item.name || item.label,
                     value: item.id?.toString() || item.value
                 }));

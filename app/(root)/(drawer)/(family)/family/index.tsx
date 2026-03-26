@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from '@/api/apiMethods';
+import { apiGet, apiPatch } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import CommonButton from '@/components/CommonButton';
@@ -13,7 +13,6 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     FlatList,
     Image,
@@ -25,6 +24,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 const width = Dimensions.get('window').width;
 
@@ -160,24 +160,16 @@ export default function Family() {
     const tapOnSaveInvite = async (payload: any) => {
         try {
             setLoading(true);
-            const response = await apiPost(ApiConstants.MEMBERS, payload);
-            if (response.status === 201 || response.status === 200) {
-                const memberId = response.data?.id;
+            const memberId = payload.member_id;
+            if (!memberId) throw new Error("Member ID is missing");
 
-                // If emergency access is enabled, set it up for the new member
-                if (payload.emergency_access && memberId) {
-                    try {
-                        await apiPost(`${ApiConstants.MEMBERS}${memberId}${ApiConstants.MEMBER_EMERGENCY_ACCESS}`, {
-                            member_id: memberId,
-                            trigger_type: 'inactivity_timer',
-                            inactivity_days: 90
-                        });
-                    } catch (err) {
-                        console.error('Error setting emergency access:', err);
-                    }
-                }
-
-                Alert.alert('Success', 'Invitation sent successfully');
+            const response = await apiPatch(`${ApiConstants.MEMBERS}${memberId}/`, payload);
+            if (response.status === 200 || response.status === 204) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Invitation sent successfully'
+                });
                 setInviteModalVisible(false);
                 fetchFamilyMembers();
             }
@@ -185,7 +177,11 @@ export default function Family() {
             console.error('Error sending invitation:', error);
             console.error('Error response:', error?.response?.status, JSON.stringify(error?.response?.data));
             const errorMsg = error?.response?.data?.detail || error?.response?.data?.invitee_email?.[0] || JSON.stringify(error?.response?.data) || 'Failed to send invitation';
-            Alert.alert('Error', errorMsg);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: errorMsg
+            });
         } finally {
             setLoading(false);
         }

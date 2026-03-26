@@ -48,13 +48,13 @@ const styles = StyleSheet.create({
     },
     activityAction: {
         fontFamily: 'Inter-SemiBold',
-        fontSize: 11,
+        fontSize: 14,
         color: ColorConstants.DARK_CYAN,
         marginBottom: 2,
     },
     activityDetail: {
         fontFamily: 'Inter-Regular',
-        fontSize: 11,
+        fontSize: 12,
         color: ColorConstants.DARK_CYAN,
     },
 

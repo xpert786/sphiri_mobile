@@ -541,11 +541,11 @@ const styles = StyleSheet.create({
         padding: 16,
         // Shadow for iOS
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.10,
+        shadowRadius: 8,
         // Elevation for Android
-        elevation: 1,
+        elevation: 4,
     },
     statHeader: {
         flexDirection: 'row',
@@ -592,10 +592,10 @@ const styles = StyleSheet.create({
     activeTab: {
         backgroundColor: ColorConstants.WHITE,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 1,
-        elevation: 1,
+        elevation: 4,
     },
     tabText: {
         fontSize: 14,

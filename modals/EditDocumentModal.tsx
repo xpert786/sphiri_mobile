@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
     Image,
+    Linking,
     Modal,
     Platform,
     ScrollView,
@@ -48,7 +49,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         fileType: '',
     });
     console.log("initialData-->>>", initialData);
-
+    const [isEditMode, setIsEditMode] = useState(false);
 
     const [tags, setTags] = useState<{ id: number; name: string }[]>([]);
     const [availableTags, setAvailableTags] = useState<{ id: number; name: string }[]>([]);
@@ -76,7 +77,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
     const [dateError, setDateError] = useState('');
     const [titleError, setTitleError] = useState('');
     const [tagsError, setTagsError] = useState('');
-
+    console.log("selectedfile", selectedFile);
     const fetchTags = async () => {
         try {
             const response = await apiGet(ApiConstants.DOCUMENT_TAGS);
@@ -178,6 +179,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         fetchLinkedContacts();
         fetchPersonalContacts();
         fetchProfessionalContacts();
+        setIsEditMode(false); // Reset to View Mode whenever modal opens
     }, [visible]);
 
     // Reset form when initialData changes or modal opens
@@ -193,17 +195,24 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
             // Map initial tag names to IDs from availableTags; create fallback objects for unmatched names
             const mappedTags = initialTagsDisplay.map((tagName: any, index: number) => {
                 // Already an object with id
-                if (typeof tagName === 'object' && tagName !== null && (tagName.id || tagName.pk)) {
-                    return { id: tagName.id || tagName.pk, name: tagName.name || tagName.title };
+                if (typeof tagName === 'object' && tagName !== null) {
+                    const id = tagName.id || tagName.pk;
+                    const name = tagName.name || tagName.title;
+                    if (id && name) return { id, name };
                 }
+
                 const nameStr = typeof tagName === 'string' ? tagName.trim() : '';
                 if (!nameStr) return null;
 
-                // Try to find in availableTags
+                // Try to find in availableTags by name
                 const found = availableTags.find(t => t.name.toLowerCase() === nameStr.toLowerCase());
                 if (found) return found;
 
-                // Fallback: create a tag object so it shows as a chip
+                // Try to find in availableTags if nameStr is actually an ID
+                const foundById = availableTags.find(t => String(t.id) === nameStr);
+                if (foundById) return foundById;
+
+                // Fallback: create a tag object so it shows as a chip (but keep original name)
                 return { id: -(index + 1), name: nameStr };
             }).filter((t: any): t is { id: number; name: string } => t !== null);
             setTags(mappedTags);
@@ -392,6 +401,741 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         setOpenDropdown(prev => (prev === key ? null : key));
     };
 
+    const renderViewMode = () => {
+        return (
+            <View>
+                {/* Document Title */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Document Title</Text>
+                    <View style={styles.valueBox}>
+                        <Text style={styles.valueText}>{formData.documentTitle || '- -'}</Text>
+                    </View>
+                </View>
+
+                {/* Category & Property */}
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <View style={[styles.inputContainer, { flex: 1 }]}>
+                        <Text style={styles.labelView}>Category</Text>
+                        <View style={styles.valueBox}>
+                            <Text style={styles.valueText}>{formData.category || '- -'}</Text>
+                        </View>
+                    </View>
+                    <View style={[styles.inputContainer, { flex: 1 }]}>
+                        <Text style={styles.labelView}>Property</Text>
+                        <View style={styles.valueBox}>
+                            <Text style={styles.valueText}>{formData.property || '- -'}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Custom Folder */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Custom Folder</Text>
+                    <View style={styles.valueBox}>
+                        <Text style={styles.valueText}>{formData.customFolder || '- -'}</Text>
+                    </View>
+                </View>
+
+                {/* Dates */}
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <View style={[styles.inputContainer, { flex: 1 }]}>
+                        <Text style={styles.labelView}>Issue Date</Text>
+                        <View style={styles.valueBox}>
+                            <Text style={styles.valueText}>{formatDate(formData.issueDate)}</Text>
+                        </View>
+                    </View>
+                    <View style={[styles.inputContainer, { flex: 1 }]}>
+                        <Text style={styles.labelView}>Expiration Date</Text>
+                        <View style={styles.valueBox}>
+                            <Text style={styles.valueText}>{formatDate(formData.expirationDate)}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Tags */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Tags</Text>
+                    <View style={styles.tagsDisplayRow}>
+                        {tags.length > 0 ? tags.map(tag => (
+                            <View key={tag.id} style={styles.tagChipView}>
+                                <Text style={styles.tagText}>{tag.name}</Text>
+                            </View>
+                        )) : <Text style={styles.emptyText}>No tags selected</Text>}
+                    </View>
+                </View>
+
+                {/* Linked Contacts Sections */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Linked Family Member</Text>
+                    <View style={styles.tagsDisplayRow}>
+                        {selectedContacts.length > 0 ? selectedContacts.map(c => (
+                            <View key={c.id} style={styles.familyChipView}>
+                                <Text style={styles.familyText}>{c.name}</Text>
+                            </View>
+                        )) : <Text style={styles.emptyText}>No family members linked</Text>}
+                    </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Linked Professional Contact</Text>
+                    <View style={styles.tagsDisplayRow}>
+                        {selectedProfessionalContacts.length > 0 ? selectedProfessionalContacts.map(c => (
+                            <View key={c.id} style={styles.professionalChipView}>
+                                <Text style={styles.professionalText}>{c.name}</Text>
+                            </View>
+                        )) : <Text style={styles.emptyText}>No professional contacts linked</Text>}
+                    </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Linked Personal Contact</Text>
+                    <View style={styles.tagsDisplayRow}>
+                        {selectedPersonalContacts.length > 0 ? selectedPersonalContacts.map(c => (
+                            <View key={c.id} style={styles.personalChipView}>
+                                <Text style={styles.personalText}>{c.name}</Text>
+                            </View>
+                        )) : <Text style={styles.emptyText}>No personal contacts linked</Text>}
+                    </View>
+                </View>
+
+                {/* Note */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.labelView}>Note</Text>
+                    <View style={styles.notesBox}>
+                        <Text style={styles.valueText}>{formData.note || 'No notes added'}</Text>
+                    </View>
+                </View>
+
+                {/* Attachment */}
+                <Text style={styles.labelView}>Document File</Text>
+                {fileUploaded && selectedFile ? (
+                    <View style={styles.documentWrapper}>
+                        <View style={styles.documentIconBox}>
+                            <Image source={Icons.ic_file_corner} style={styles.documentIcon} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.documentName}>{selectedFile.name}</Text>
+                            <Text style={styles.documentSize}>{((selectedFile.size || 0) / 1024).toFixed(2)} KB</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.previewButton}
+                            onPress={() => {
+                                if (selectedFile?.uri) {
+                                    Linking.openURL(selectedFile.uri).catch(err => console.error("Couldn't load page", err));
+                                }
+                            }}
+                        >
+                            <Text style={styles.previewButtonText}>Preview</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <Text style={styles.emptyText}>No file attached</Text>
+                )}
+            </View>
+        );
+    };
+
+    const renderEditMode = () => {
+        return (
+            <View>
+                {/* Document Title */}
+                <View style={{ marginBottom: titleError ? 0 : 0 }}>
+                    <CustomTextInput
+                        label="Document Title"
+                        value={formData.documentTitle}
+                        onChangeText={(t) => handleInputChange('documentTitle', t)}
+                        placeholder="Enter document title"
+                        parentStyles={{ marginBottom: titleError ? 4 : 16 }}
+                    />
+                    {titleError ? <Text style={[styles.errorText, { marginBottom: 12 }]}>{titleError}</Text> : null}
+                </View>
+
+                {/* Category Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 3000 }]}>
+                    <Text style={styles.label}>Category</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('category')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>{formData.category}</Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'category' && (
+                        <View style={styles.dropdownList}>
+                            <ScrollView nestedScrollEnabled >
+                                {availableCategories.map((opt, index) => (
+                                    <TouchableOpacity
+                                        key={opt.id}
+                                        style={[
+                                            styles.dropdownItem,
+                                            index === availableCategories.length - 1 && { borderBottomWidth: 0 }
+                                        ]}
+                                        onPress={() => {
+                                            handleInputChange('category', opt.name);
+                                            setOpenDropdown(null);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{opt.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                    {/* <TouchableOpacity style={styles.customAddButton} activeOpacity={0.7}>
+                                <Image source={Icons.ic_plus} style={styles.plusIcon} />
+                                <Text style={styles.customAddText}>Custom</Text>
+                            </TouchableOpacity> */}
+                </View>
+
+                {/* Custom Folder Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 2000 }]}>
+                    <Text style={styles.label}>Custom Folder</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('folder')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>{formData.customFolder}</Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'folder' && (
+                        <View style={styles.dropdownList}>
+                            <ScrollView nestedScrollEnabled>
+                                {folders.map((opt, index) => (
+                                    <TouchableOpacity
+                                        key={opt.id}
+                                        style={[
+                                            styles.dropdownItem,
+                                            index === folders.length - 1 && { borderBottomWidth: 0 }
+                                        ]}
+                                        onPress={() => {
+                                            handleInputChange('customFolder', opt.name);
+                                            setOpenDropdown(null);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{opt.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                    {/* <TouchableOpacity style={styles.customAddButton} activeOpacity={0.7}>
+                                <Image source={Icons.ic_plus} style={styles.plusIcon} />
+                                <Text style={styles.customAddText}>New</Text>
+                            </TouchableOpacity> */}
+                </View>
+
+                {/* Property Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 1500 }]}>
+                    <Text style={styles.label}>Property</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('property')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>
+                            {formData.property || 'Select Property'}
+                        </Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'property' && (
+                        <View style={styles.dropdownList}>
+                            <ScrollView nestedScrollEnabled>
+                                {apiProperties.map((prop, index) => (
+                                    <TouchableOpacity
+                                        key={prop.id}
+                                        style={[
+                                            styles.dropdownItem,
+                                            index === apiProperties.length - 1 && { borderBottomWidth: 0 }
+                                        ]}
+                                        onPress={() => {
+                                            setFormData(prev => ({ ...prev, property: prop.name, property_id: prop.id }));
+                                            setOpenDropdown(null);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{prop.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                </View>
+
+                {/* Issue Date */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Issue Date</Text>
+                    <TouchableOpacity
+                        style={styles.dateInputButton}
+                        onPress={() => setShowIssueDatePicker(true)}
+                    >
+                        <Text style={styles.inputText}>{formatDate(formData.issueDate)}</Text>
+                        <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Expiration Date */}
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Expiration Date</Text>
+                    <TouchableOpacity
+                        style={styles.dateInputButton}
+                        onPress={() => setShowExpirationDatePicker(true)}
+                    >
+                        <Text style={styles.inputText}>{formatDate(formData.expirationDate)}</Text>
+                        <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
+                    </TouchableOpacity>
+                    {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
+                </View>
+
+                {/* Tags Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 1000 }]}>
+                    <Text style={styles.label}>Tags</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('tags')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>
+                            {tags.length > 0 ? `${tags.length} tags selected` : 'Select tags'}
+                        </Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'tags' && (
+                        <View style={[styles.dropdownList]}>
+                            <ScrollView nestedScrollEnabled>
+                                {availableTags.map((tag, index) => {
+                                    const isSelected = tags.some(t => t.id === tag.id);
+                                    return (
+                                        <TouchableOpacity
+                                            key={tag.id}
+                                            style={[
+                                                styles.dropdownItem,
+                                                isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
+                                                index === availableTags.length - 1 && { borderBottomWidth: 0 }
+                                            ]}
+                                            onPress={() => handleToggleTag(tag)}
+                                        >
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={[
+                                                    styles.dropdownItemText,
+                                                    isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
+                                                ]}>
+                                                    {tag.name}
+                                                </Text>
+                                                {isSelected && (
+                                                    <View style={styles.selectedCheck}>
+                                                        <Image source={Icons.ic_check} style={styles.checkIcon} />
+                                                    </View>
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    )
+                                })}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    <View style={styles.tagsDisplayRow}>
+                        {tags.map((tag) => (
+                            <View key={tag.id} style={styles.tagChip}>
+                                <Text style={styles.tagText}>{tag.name}</Text>
+                                <TouchableOpacity onPress={() => handleRemoveTag(tag.id)} style={styles.removeTagBtn}>
+                                    <Image source={Icons.ic_cross} style={styles.removeTagIcon} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                    {tagsError ? <Text style={styles.errorText}>{tagsError}</Text> : null}
+                </View>
+
+                {/* Linked Family Member Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 500 }]}>
+                    <Text style={styles.label}>Linked Family Member</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('linkedContact')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>
+                            {selectedContacts.length > 0 ? `${selectedContacts.length} contacts selected` : 'Select contacts'}
+                        </Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'linkedContact' && (
+                        <View style={[styles.dropdownList]}>
+                            <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                                <TextInput
+                                    style={{ fontFamily: Fonts.mulishRegular, fontSize: 13, color: ColorConstants.BLACK, backgroundColor: '#F9FAFB', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, height: 36 }}
+                                    value={contactSearchQuery}
+                                    onChangeText={setContactSearchQuery}
+                                    placeholder="Search contacts"
+                                    placeholderTextColor={ColorConstants.GRAY}
+                                />
+                            </View>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                                {(() => {
+                                    const filteredContacts = availableLinkedContacts.filter(c => c.name.toLowerCase().includes(contactSearchQuery.toLowerCase()));
+                                    if (filteredContacts.length === 0) {
+                                        return <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No matches found</Text>;
+                                    }
+                                    return filteredContacts.map((contact, index) => {
+                                        const isSelected = selectedContacts.some(c => c.id === contact.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={contact.id}
+                                                style={[
+                                                    styles.dropdownItem,
+                                                    isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
+                                                    index === filteredContacts.length - 1 && { borderBottomWidth: 0 }
+                                                ]}
+                                                onPress={() => handleToggleContact(contact)}
+                                            >
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Text style={[
+                                                        styles.dropdownItemText,
+                                                        isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
+                                                    ]}>
+                                                        {contact.name}
+                                                    </Text>
+                                                    {isSelected && (
+                                                        <View style={styles.selectedCheck}>
+                                                            <Image source={Icons.ic_check} style={styles.checkIcon} />
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </TouchableOpacity>
+                                        )
+                                    })
+                                })()}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    <View style={styles.tagsDisplayRow}>
+                        {selectedContacts.map((contact) => (
+                            <View key={contact.id} style={styles.familyChip}>
+                                <Text style={styles.familyText}>{contact.name}</Text>
+                                <TouchableOpacity onPress={() => handleRemoveContact(contact.id)} style={styles.removeTagBtn}>
+                                    <Image source={Icons.ic_cross} style={styles.removeFamilyIcon} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Linked Personal Contact Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 400 }]}>
+                    <Text style={styles.label}>Linked Personal Contact</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('linkedPersonalContact')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>
+                            {selectedPersonalContacts.length > 0 ? `${selectedPersonalContacts.length} contacts selected` : 'Select contacts'}
+                        </Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'linkedPersonalContact' && (
+                        <View style={[styles.dropdownList]}>
+                            <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                                <TextInput
+                                    style={{ fontFamily: Fonts.mulishRegular, fontSize: 13, color: ColorConstants.BLACK, backgroundColor: '#F9FAFB', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, height: 36 }}
+                                    value={personalContactSearchQuery}
+                                    onChangeText={setPersonalContactSearchQuery}
+                                    placeholder="Search personal contact"
+                                    placeholderTextColor={ColorConstants.GRAY}
+                                />
+                            </View>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                                {(() => {
+                                    const filteredContacts = personalContacts.filter(c => c.name.toLowerCase().includes(personalContactSearchQuery.toLowerCase()));
+                                    if (filteredContacts.length === 0) {
+                                        return <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No matches found</Text>;
+                                    }
+                                    return filteredContacts.map((contact, index) => {
+                                        const isSelected = selectedPersonalContacts.some(c => c.id === contact.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={contact.id}
+                                                style={[
+                                                    styles.dropdownItem,
+                                                    isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
+                                                    index === filteredContacts.length - 1 && { borderBottomWidth: 0 }
+                                                ]}
+                                                onPress={() => handleTogglePersonalContact(contact)}
+                                            >
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <View>
+                                                        <Text style={[
+                                                            styles.dropdownItemText,
+                                                            isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
+                                                        ]}>
+                                                            {contact.name}
+                                                        </Text>
+                                                        {contact.relationship && (
+                                                            <Text style={{ fontFamily: Fonts.mulishRegular, fontSize: 12, color: '#666', marginTop: 2 }}>{contact.relationship}</Text>
+                                                        )}
+                                                    </View>
+                                                    {isSelected && (
+                                                        <View style={styles.selectedCheck}>
+                                                            <Image source={Icons.ic_check} style={styles.checkIcon} />
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </TouchableOpacity>
+                                        )
+                                    })
+                                })()}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    <View style={styles.tagsDisplayRow}>
+                        {selectedPersonalContacts.map((contact) => (
+                            <View key={contact.id} style={styles.personalChip}>
+                                <Text style={styles.personalText}>{contact.name}</Text>
+                                <TouchableOpacity onPress={() => handleRemovePersonalContact(contact.id)} style={styles.removeTagBtn}>
+                                    <Image source={Icons.ic_cross} style={styles.removePersonalIcon} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Linked Professional Contact Dropdown */}
+                <View style={[styles.inputContainer, { zIndex: 300 }]}>
+                    <Text style={styles.label}>Linked Professional Contact</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => toggleDropdown('linkedProfessionalContact')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.inputText}>
+                            {selectedProfessionalContacts.length > 0 ? `${selectedProfessionalContacts.length} contacts selected` : 'Select contacts'}
+                        </Text>
+                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
+                    </TouchableOpacity>
+
+                    {openDropdown === 'linkedProfessionalContact' && (
+                        <View style={[styles.dropdownList]}>
+                            <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
+                                <TextInput
+                                    style={{ fontFamily: Fonts.mulishRegular, fontSize: 13, color: ColorConstants.BLACK, backgroundColor: '#F9FAFB', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, height: 36 }}
+                                    value={professionalContactSearchQuery}
+                                    onChangeText={setProfessionalContactSearchQuery}
+                                    placeholder="Search vendors"
+                                    placeholderTextColor={ColorConstants.GRAY}
+                                />
+                            </View>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 235 }}>
+                                {(() => {
+                                    const query = professionalContactSearchQuery.toLowerCase();
+                                    const filteredContacts = professionalContacts.filter(c =>
+                                        c.name.toLowerCase().includes(query) ||
+                                        (c.company && c.company.toLowerCase().includes(query))
+                                    );
+                                    if (filteredContacts.length === 0) {
+                                        return <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No matches found</Text>;
+                                    }
+                                    return filteredContacts.map((contact, index) => {
+                                        const isSelected = selectedProfessionalContacts.some(c => c.id === contact.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={contact.id}
+                                                style={[
+                                                    styles.dropdownItem,
+                                                    isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
+                                                    index === filteredContacts.length - 1 && { borderBottomWidth: 0 }
+                                                ]}
+                                                onPress={() => handleToggleProfessionalContact(contact)}
+                                            >
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <View>
+                                                        <Text style={[
+                                                            styles.dropdownItemText,
+                                                            isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
+                                                        ]}>
+                                                            {contact.name}
+                                                        </Text>
+                                                        {contact.company && (
+                                                            <Text style={{ fontFamily: Fonts.mulishRegular, fontSize: 12, color: '#666', marginTop: 2 }}>{contact.company}</Text>
+                                                        )}
+                                                    </View>
+                                                    {isSelected && (
+                                                        <View style={styles.selectedCheck}>
+                                                            <Image source={Icons.ic_check} style={styles.checkIcon} />
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </TouchableOpacity>
+                                        )
+                                    })
+                                })()}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    <View style={styles.tagsDisplayRow}>
+                        {selectedProfessionalContacts.map((contact) => (
+                            <View key={contact.id} style={styles.professionalChip}>
+                                <Text style={styles.professionalText}>{contact.name}</Text>
+                                <TouchableOpacity onPress={() => handleRemoveProfessionalContact(contact.id)} style={styles.removeTagBtn}>
+                                    <Image source={Icons.ic_cross} style={styles.removeProfessionalIcon} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Note */}
+                <CustomTextInput
+                    label="Note"
+                    value={formData.note}
+                    onChangeText={(t) => handleInputChange('note', t)}
+                    placeholder="Add note"
+                    multiline
+                    inputStyles={{ height: 100, alignItems: 'flex-start' }}
+                />
+
+                {/* Upload Area */}
+                <Text style={styles.label}>Document File</Text>
+                {!fileUploaded ? (
+                    <TouchableOpacity style={[styles.inputContainer, { borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 8, padding: 20, alignItems: 'center' }]} onPress={pickDocument}>
+                        <Image source={Icons.ic_upload} style={{ width: 40, height: 40, marginBottom: 10 }} />
+                        <Text style={{ fontFamily: Fonts.ManropeSemiBold, fontSize: 16, color: ColorConstants.BLACK2 }}>Click here To Browse</Text>
+                        <Text style={{ fontFamily: Fonts.mulishRegular, fontSize: 12, color: '#666', marginTop: 4 }}>PDF, DOC, XLS, JPG, PNG up to 10MB</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={styles.documentWrapper}>
+                        <View style={styles.documentIconBox}>
+                            <Image source={Icons.ic_file_corner} style={styles.documentIcon} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.documentName}>{selectedFile?.name || 'document.pdf'}</Text>
+                            <Text style={styles.documentSize}>{((selectedFile?.size || 0) / 1024).toFixed(2)} KB • Selected</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => { setSelectedFile(null); setFileUploaded(false); }}>
+                            <Image source={Icons.ic_cross_square} style={{ width: 24, height: 24 }} />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+
+
+                {/* Footer Buttons */}
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveButton} onPress={() => {
+                        let hasError = false;
+
+                        if (!formData.documentTitle.trim()) {
+                            setTitleError('Document title is required');
+                            hasError = true;
+                        } else {
+                            setTitleError('');
+                        }
+
+                        if (formData.expirationDate <= formData.issueDate) {
+                            setDateError('Expiration date must be greater than issue date');
+                            hasError = true;
+                        } else {
+                            setDateError('');
+                        }
+
+                        if (tags.length === 0) {
+                            setTagsError('At least one tag is required');
+                            hasError = true;
+                        } else {
+                            setTagsError('');
+                        }
+
+                        if (hasError) return;
+
+                        // Find selected category ID
+                        const selectedCategory = availableCategories.find(c => c.name === formData.category);
+
+                        // Format dates as YYYY-MM-DD
+                        const formatDateToYMD = (date: Date) => {
+                            return date.toISOString().split('T')[0];
+                        };
+
+                        const formattedTags = tags.filter(t => t.id > 0).map(t => t.id).join(',');
+
+                        const payload = new FormData();
+                        payload.append('title', formData.documentTitle);
+                        if (selectedCategory) payload.append('category', selectedCategory.id.toString());
+                        // Custom folder logic mapping
+                        if (formData.customFolder) {
+                            const cF = folders.find(f => f.name === formData.customFolder);
+                            if (cF) payload.append('folder', cF.id.toString());
+                            else payload.append('folder', formData.customFolder);
+                        }
+                        if (formData.property_id) payload.append('property', formData.property_id.toString());
+                        payload.append('issue_date', formatDateToYMD(formData.issueDate));
+                        payload.append('expiration_date', formatDateToYMD(formData.expirationDate));
+                        if (formattedTags) payload.append('tags', formattedTags);
+
+                        if (selectedContacts.length > 0) {
+                            selectedContacts.forEach(c => payload.append('linked_family_members', c.id.toString()));
+                        }
+                        if (selectedPersonalContacts.length > 0) {
+                            selectedPersonalContacts.forEach(c => payload.append('linked_personal_contacts', c.id.toString()));
+                        }
+                        if (selectedProfessionalContacts.length > 0) {
+                            selectedProfessionalContacts.forEach(c => payload.append('linked_vendors', c.id.toString()));
+                        }
+                        payload.append('description', formData.note);
+
+                        if (selectedFile && selectedFile.uri && !selectedFile.uri.startsWith('http')) {
+                            payload.append('file', {
+                                uri: selectedFile.uri,
+                                name: selectedFile.name,
+                                type: selectedFile.mimeType || 'application/octet-stream',
+                            } as any);
+                        }
+
+                        onSave(payload);
+                    }}>
+                        <Text style={styles.saveButtonText}>Save Changes</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Date Pickers */}
+                {showIssueDatePicker && (
+                    <DateTimePicker
+                        value={formData.issueDate}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(event, date) => {
+                            setShowIssueDatePicker(Platform.OS === 'ios');
+                            if (date) handleInputChange('issueDate', date);
+                        }}
+                    />
+                )}
+                {showExpirationDatePicker && (
+                    <DateTimePicker
+                        value={formData.expirationDate}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(event, date) => {
+                            setShowExpirationDatePicker(Platform.OS === 'ios');
+                            if (date) handleInputChange('expirationDate', date);
+                        }}
+                    />
+                )}
+            </View>
+        );
+    };
+
     return (
         <Modal
             visible={visible}
@@ -403,611 +1147,44 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 <View style={styles.modalContainer}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <View>
-                            <Text style={styles.headerTitle}>Edit Document</Text>
-                            <Text style={styles.headerSubtitle}>Update document information and details</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerTitle}>
+                                {isEditMode ? 'Edit Document' : 'Document Details'}
+                            </Text>
+                            <Text style={styles.headerSubtitle}>
+                                {isEditMode
+                                    ? 'Update document information and details'
+                                    : 'Viewing document information.'}
+                            </Text>
                         </View>
+
+                        {!isEditMode && (
+                            <TouchableOpacity
+                                style={styles.editInfoButton}
+                                onPress={() => setIsEditMode(true)}
+                            >
+                                <Image source={Icons.ic_edit2} style={styles.editInfoIcon} />
+                                <Text style={styles.editInfoText}>Edit Info</Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                             <Image source={Icons.ic_cross} style={styles.closeIcon} />
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                        {/* Document Title */}
-                        <View style={{ marginBottom: titleError ? 0 : 0 }}>
-                            <CustomTextInput
-                                label="Document Title"
-                                value={formData.documentTitle}
-                                onChangeText={(t) => handleInputChange('documentTitle', t)}
-                                placeholder="Enter document title"
-                                parentStyles={{ marginBottom: titleError ? 4 : 16 }}
-                            />
-                            {titleError ? <Text style={[styles.errorText, { marginBottom: 12 }]}>{titleError}</Text> : null}
-                        </View>
-
-                        {/* Category Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 3000 }]}>
-                            <Text style={styles.label}>Category</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('category')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>{formData.category}</Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'category' && (
-                                <View style={styles.dropdownList}>
-                                    <ScrollView nestedScrollEnabled >
-                                        {availableCategories.map((opt, index) => (
-                                            <TouchableOpacity
-                                                key={opt.id}
-                                                style={[
-                                                    styles.dropdownItem,
-                                                    index === availableCategories.length - 1 && { borderBottomWidth: 0 }
-                                                ]}
-                                                onPress={() => {
-                                                    handleInputChange('category', opt.name);
-                                                    setOpenDropdown(null);
-                                                }}
-                                            >
-                                                <Text style={styles.dropdownItemText}>{opt.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </View>
-                            )}
-                            {/* <TouchableOpacity style={styles.customAddButton} activeOpacity={0.7}>
-                                <Image source={Icons.ic_plus} style={styles.plusIcon} />
-                                <Text style={styles.customAddText}>Custom</Text>
-                            </TouchableOpacity> */}
-                        </View>
-
-                        {/* Custom Folder Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 2000 }]}>
-                            <Text style={styles.label}>Custom Folder</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('folder')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>{formData.customFolder}</Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'folder' && (
-                                <View style={styles.dropdownList}>
-                                    <ScrollView nestedScrollEnabled>
-                                        {folders.map((opt, index) => (
-                                            <TouchableOpacity
-                                                key={opt.id}
-                                                style={[
-                                                    styles.dropdownItem,
-                                                    index === folders.length - 1 && { borderBottomWidth: 0 }
-                                                ]}
-                                                onPress={() => {
-                                                    handleInputChange('customFolder', opt.name);
-                                                    setOpenDropdown(null);
-                                                }}
-                                            >
-                                                <Text style={styles.dropdownItemText}>{opt.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </View>
-                            )}
-                            {/* <TouchableOpacity style={styles.customAddButton} activeOpacity={0.7}>
-                                <Image source={Icons.ic_plus} style={styles.plusIcon} />
-                                <Text style={styles.customAddText}>New</Text>
-                            </TouchableOpacity> */}
-                        </View>
-
-                        {/* Property Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 1500 }]}>
-                            <Text style={styles.label}>Property</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('property')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>
-                                    {formData.property || 'Select Property'}
-                                </Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'property' && (
-                                <View style={styles.dropdownList}>
-                                    <ScrollView nestedScrollEnabled>
-                                        {apiProperties.map((prop, index) => (
-                                            <TouchableOpacity
-                                                key={prop.id}
-                                                style={[
-                                                    styles.dropdownItem,
-                                                    index === apiProperties.length - 1 && { borderBottomWidth: 0 }
-                                                ]}
-                                                onPress={() => {
-                                                    setFormData(prev => ({ ...prev, property: prop.name, property_id: prop.id }));
-                                                    setOpenDropdown(null);
-                                                }}
-                                            >
-                                                <Text style={styles.dropdownItemText}>{prop.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Issue Date */}
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Issue Date</Text>
-                            <TouchableOpacity
-                                style={styles.dateInputButton}
-                                onPress={() => setShowIssueDatePicker(true)}
-                            >
-                                <Text style={styles.inputText}>{formatDate(formData.issueDate)}</Text>
-                                <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Expiration Date */}
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Expiration Date</Text>
-                            <TouchableOpacity
-                                style={styles.dateInputButton}
-                                onPress={() => setShowExpirationDatePicker(true)}
-                            >
-                                <Text style={styles.inputText}>{formatDate(formData.expirationDate)}</Text>
-                                <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
-                            </TouchableOpacity>
-                            {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
-                        </View>
-
-                        {/* Tags Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 1000 }]}>
-                            <Text style={styles.label}>Tags</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('tags')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>
-                                    {tags.length > 0 ? `${tags.length} tags selected` : 'Select tags'}
-                                </Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'tags' && (
-                                <View style={[styles.dropdownList]}>
-                                    <ScrollView nestedScrollEnabled>
-                                        {availableTags.map((tag, index) => {
-                                            const isSelected = tags.some(t => t.id === tag.id);
-                                            return (
-                                                <TouchableOpacity
-                                                    key={tag.id}
-                                                    style={[
-                                                        styles.dropdownItem,
-                                                        isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
-                                                        index === availableTags.length - 1 && { borderBottomWidth: 0 }
-                                                    ]}
-                                                    onPress={() => handleToggleTag(tag)}
-                                                >
-                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <Text style={[
-                                                            styles.dropdownItemText,
-                                                            isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
-                                                        ]}>
-                                                            {tag.name}
-                                                        </Text>
-                                                        {isSelected && (
-                                                            <View style={styles.selectedCheck}>
-                                                                <Image source={Icons.ic_check} style={styles.checkIcon} />
-                                                            </View>
-                                                        )}
-                                                    </View>
-                                                </TouchableOpacity>
-                                            )
-                                        })}
-                                    </ScrollView>
-                                </View>
-                            )}
-
-                            <View style={styles.tagsDisplayRow}>
-                                {tags.map((tag) => (
-                                    <View key={tag.id} style={styles.tagChip}>
-                                        <Text style={styles.tagText}>{tag.name}</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveTag(tag.id)} style={styles.removeTagBtn}>
-                                            <Image source={Icons.ic_cross} style={styles.removeTagIcon} />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
-                            </View>
-                            {tagsError ? <Text style={styles.errorText}>{tagsError}</Text> : null}
-                        </View>
-
-                        {/* Linked Family Member Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 500 }]}>
-                            <Text style={styles.label}>Linked Family Member</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('linkedContact')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>
-                                    {selectedContacts.length > 0 ? `${selectedContacts.length} contacts selected` : 'Select contacts'}
-                                </Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'linkedContact' && (
-                                <View style={[styles.dropdownList]}>
-                                    <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                                        <TextInput
-                                            style={{ fontFamily: Fonts.mulishRegular, fontSize: 13, color: ColorConstants.BLACK, backgroundColor: '#F9FAFB', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, height: 36 }}
-                                            value={contactSearchQuery}
-                                            onChangeText={setContactSearchQuery}
-                                            placeholder="Search contacts"
-                                            placeholderTextColor={ColorConstants.GRAY}
-                                        />
-                                    </View>
-                                    <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
-                                        {(() => {
-                                            const filteredContacts = availableLinkedContacts.filter(c => c.name.toLowerCase().includes(contactSearchQuery.toLowerCase()));
-                                            if (filteredContacts.length === 0) {
-                                                return <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No matches found</Text>;
-                                            }
-                                            return filteredContacts.map((contact, index) => {
-                                                const isSelected = selectedContacts.some(c => c.id === contact.id);
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={contact.id}
-                                                        style={[
-                                                            styles.dropdownItem,
-                                                            isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
-                                                            index === filteredContacts.length - 1 && { borderBottomWidth: 0 }
-                                                        ]}
-                                                        onPress={() => handleToggleContact(contact)}
-                                                    >
-                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Text style={[
-                                                                styles.dropdownItemText,
-                                                                isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
-                                                            ]}>
-                                                                {contact.name}
-                                                            </Text>
-                                                            {isSelected && (
-                                                                <View style={styles.selectedCheck}>
-                                                                    <Image source={Icons.ic_check} style={styles.checkIcon} />
-                                                                </View>
-                                                            )}
-                                                        </View>
-                                                    </TouchableOpacity>
-                                                )
-                                            })
-                                        })()}
-                                    </ScrollView>
-                                </View>
-                            )}
-
-                            <View style={styles.tagsDisplayRow}>
-                                {selectedContacts.map((contact) => (
-                                    <View key={contact.id} style={styles.familyChip}>
-                                        <Text style={styles.familyText}>{contact.name}</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveContact(contact.id)} style={styles.removeTagBtn}>
-                                            <Image source={Icons.ic_cross} style={styles.removeFamilyIcon} />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
-
-                        {/* Linked Personal Contact Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 400 }]}>
-                            <Text style={styles.label}>Linked Personal Contact</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('linkedPersonalContact')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>
-                                    {selectedPersonalContacts.length > 0 ? `${selectedPersonalContacts.length} contacts selected` : 'Select contacts'}
-                                </Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'linkedPersonalContact' && (
-                                <View style={[styles.dropdownList]}>
-                                    <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                                        <TextInput
-                                            style={{ fontFamily: Fonts.mulishRegular, fontSize: 13, color: ColorConstants.BLACK, backgroundColor: '#F9FAFB', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, height: 36 }}
-                                            value={personalContactSearchQuery}
-                                            onChangeText={setPersonalContactSearchQuery}
-                                            placeholder="Search personal contact"
-                                            placeholderTextColor={ColorConstants.GRAY}
-                                        />
-                                    </View>
-                                    <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
-                                        {(() => {
-                                            const filteredContacts = personalContacts.filter(c => c.name.toLowerCase().includes(personalContactSearchQuery.toLowerCase()));
-                                            if (filteredContacts.length === 0) {
-                                                return <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No matches found</Text>;
-                                            }
-                                            return filteredContacts.map((contact, index) => {
-                                                const isSelected = selectedPersonalContacts.some(c => c.id === contact.id);
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={contact.id}
-                                                        style={[
-                                                            styles.dropdownItem,
-                                                            isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
-                                                            index === filteredContacts.length - 1 && { borderBottomWidth: 0 }
-                                                        ]}
-                                                        onPress={() => handleTogglePersonalContact(contact)}
-                                                    >
-                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <View>
-                                                                <Text style={[
-                                                                    styles.dropdownItemText,
-                                                                    isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
-                                                                ]}>
-                                                                    {contact.name}
-                                                                </Text>
-                                                                {contact.relationship && (
-                                                                    <Text style={{ fontFamily: Fonts.mulishRegular, fontSize: 12, color: '#666', marginTop: 2 }}>{contact.relationship}</Text>
-                                                                )}
-                                                            </View>
-                                                            {isSelected && (
-                                                                <View style={styles.selectedCheck}>
-                                                                    <Image source={Icons.ic_check} style={styles.checkIcon} />
-                                                                </View>
-                                                            )}
-                                                        </View>
-                                                    </TouchableOpacity>
-                                                )
-                                            })
-                                        })()}
-                                    </ScrollView>
-                                </View>
-                            )}
-
-                            <View style={styles.tagsDisplayRow}>
-                                {selectedPersonalContacts.map((contact) => (
-                                    <View key={contact.id} style={styles.personalChip}>
-                                        <Text style={styles.personalText}>{contact.name}</Text>
-                                        <TouchableOpacity onPress={() => handleRemovePersonalContact(contact.id)} style={styles.removeTagBtn}>
-                                            <Image source={Icons.ic_cross} style={styles.removePersonalIcon} />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
-
-                        {/* Linked Professional Contact Dropdown */}
-                        <View style={[styles.inputContainer, { zIndex: 300 }]}>
-                            <Text style={styles.label}>Linked Professional Contact</Text>
-                            <TouchableOpacity
-                                style={styles.dropdownButton}
-                                onPress={() => toggleDropdown('linkedProfessionalContact')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.inputText}>
-                                    {selectedProfessionalContacts.length > 0 ? `${selectedProfessionalContacts.length} contacts selected` : 'Select contacts'}
-                                </Text>
-                                <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                            </TouchableOpacity>
-
-                            {openDropdown === 'linkedProfessionalContact' && (
-                                <View style={[styles.dropdownList]}>
-                                    <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-                                        <TextInput
-                                            style={{ fontFamily: Fonts.mulishRegular, fontSize: 13, color: ColorConstants.BLACK, backgroundColor: '#F9FAFB', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 8, height: 36 }}
-                                            value={professionalContactSearchQuery}
-                                            onChangeText={setProfessionalContactSearchQuery}
-                                            placeholder="Search vendors"
-                                            placeholderTextColor={ColorConstants.GRAY}
-                                        />
-                                    </View>
-                                    <ScrollView nestedScrollEnabled style={{ maxHeight: 235 }}>
-                                        {(() => {
-                                            const query = professionalContactSearchQuery.toLowerCase();
-                                            const filteredContacts = professionalContacts.filter(c =>
-                                                c.name.toLowerCase().includes(query) ||
-                                                (c.company && c.company.toLowerCase().includes(query))
-                                            );
-                                            if (filteredContacts.length === 0) {
-                                                return <Text style={{ padding: 16, textAlign: 'center', color: '#666' }}>No matches found</Text>;
-                                            }
-                                            return filteredContacts.map((contact, index) => {
-                                                const isSelected = selectedProfessionalContacts.some(c => c.id === contact.id);
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={contact.id}
-                                                        style={[
-                                                            styles.dropdownItem,
-                                                            isSelected && { backgroundColor: ColorConstants.PRIMARY_10 },
-                                                            index === filteredContacts.length - 1 && { borderBottomWidth: 0 }
-                                                        ]}
-                                                        onPress={() => handleToggleProfessionalContact(contact)}
-                                                    >
-                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <View>
-                                                                <Text style={[
-                                                                    styles.dropdownItemText,
-                                                                    isSelected && { fontFamily: Fonts.ManropeSemiBold, color: ColorConstants.PRIMARY_BROWN }
-                                                                ]}>
-                                                                    {contact.name}
-                                                                </Text>
-                                                                {contact.company && (
-                                                                    <Text style={{ fontFamily: Fonts.mulishRegular, fontSize: 12, color: '#666', marginTop: 2 }}>{contact.company}</Text>
-                                                                )}
-                                                            </View>
-                                                            {isSelected && (
-                                                                <View style={styles.selectedCheck}>
-                                                                    <Image source={Icons.ic_check} style={styles.checkIcon} />
-                                                                </View>
-                                                            )}
-                                                        </View>
-                                                    </TouchableOpacity>
-                                                )
-                                            })
-                                        })()}
-                                    </ScrollView>
-                                </View>
-                            )}
-
-                            <View style={styles.tagsDisplayRow}>
-                                {selectedProfessionalContacts.map((contact) => (
-                                    <View key={contact.id} style={styles.professionalChip}>
-                                        <Text style={styles.professionalText}>{contact.name}</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveProfessionalContact(contact.id)} style={styles.removeTagBtn}>
-                                            <Image source={Icons.ic_cross} style={styles.removeProfessionalIcon} />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
-
-                        {/* Note */}
-                        <CustomTextInput
-                            label="Note"
-                            value={formData.note}
-                            onChangeText={(t) => handleInputChange('note', t)}
-                            placeholder="Add note"
-                            multiline
-                            inputStyles={{ height: 100, alignItems: 'flex-start' }}
-                        />
-
-                        {/* Upload Area */}
-                        <Text style={styles.label}>Document File</Text>
-                        {!fileUploaded ? (
-                            <TouchableOpacity style={[styles.inputContainer, { borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 8, padding: 20, alignItems: 'center' }]} onPress={pickDocument}>
-                                <Image source={Icons.ic_upload} style={{ width: 40, height: 40, marginBottom: 10 }} />
-                                <Text style={{ fontFamily: Fonts.ManropeSemiBold, fontSize: 16, color: ColorConstants.BLACK2 }}>Click here To Browse</Text>
-                                <Text style={{ fontFamily: Fonts.mulishRegular, fontSize: 12, color: '#666', marginTop: 4 }}>PDF, DOC, XLS, JPG, PNG up to 10MB</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <View style={styles.documentWrapper}>
-                                <View style={styles.documentIconBox}>
-                                    <Image source={Icons.ic_file_corner} style={styles.documentIcon} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.documentName}>{selectedFile?.name || 'document.pdf'}</Text>
-                                    <Text style={styles.documentSize}>{((selectedFile?.size || 0) / 1024).toFixed(2)} KB • Selected</Text>
-                                </View>
-                                <TouchableOpacity onPress={() => { setSelectedFile(null); setFileUploaded(false); }}>
-                                    <Image source={Icons.ic_cross_square} style={{ width: 24, height: 24 }} />
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-
-
-                        {/* Footer Buttons */}
-                        <View style={styles.footer}>
-                            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.saveButton} onPress={() => {
-                                let hasError = false;
-
-                                if (!formData.documentTitle.trim()) {
-                                    setTitleError('Document title is required');
-                                    hasError = true;
-                                } else {
-                                    setTitleError('');
-                                }
-
-                                if (formData.expirationDate <= formData.issueDate) {
-                                    setDateError('Expiration date must be greater than issue date');
-                                    hasError = true;
-                                } else {
-                                    setDateError('');
-                                }
-
-                                if (tags.length === 0) {
-                                    setTagsError('At least one tag is required');
-                                    hasError = true;
-                                } else {
-                                    setTagsError('');
-                                }
-
-                                if (hasError) return;
-
-                                // Find selected category ID
-                                const selectedCategory = availableCategories.find(c => c.name === formData.category);
-
-                                // Format dates as YYYY-MM-DD
-                                const formatDateToYMD = (date: Date) => {
-                                    return date.toISOString().split('T')[0];
-                                };
-
-                                const formattedTags = tags.map(t => t.name).join(',');
-
-                                const payload = new FormData();
-                                payload.append('title', formData.documentTitle);
-                                if (selectedCategory) payload.append('category', selectedCategory.id.toString());
-                                // Custom folder logic mapping
-                                if (formData.customFolder) {
-                                    const cF = folders.find(f => f.name === formData.customFolder);
-                                    if (cF) payload.append('folder', cF.id.toString());
-                                    else payload.append('folder', formData.customFolder);
-                                }
-                                if (formData.property_id) payload.append('property', formData.property_id.toString());
-                                payload.append('issue_date', formatDateToYMD(formData.issueDate));
-                                payload.append('expiration_date', formatDateToYMD(formData.expirationDate));
-                                if (formattedTags) payload.append('tags', formattedTags);
-
-                                if (selectedContacts.length > 0) {
-                                    selectedContacts.forEach(c => payload.append('linked_family_members', c.id.toString()));
-                                }
-                                if (selectedPersonalContacts.length > 0) {
-                                    selectedPersonalContacts.forEach(c => payload.append('linked_personal_contacts', c.id.toString()));
-                                }
-                                if (selectedProfessionalContacts.length > 0) {
-                                    selectedProfessionalContacts.forEach(c => payload.append('linked_vendors', c.id.toString()));
-                                }
-                                payload.append('description', formData.note);
-
-                                if (selectedFile && selectedFile.uri && !selectedFile.uri.startsWith('http')) {
-                                    payload.append('file', {
-                                        uri: selectedFile.uri,
-                                        name: selectedFile.name,
-                                        type: selectedFile.mimeType || 'application/octet-stream',
-                                    } as any);
-                                }
-
-                                onSave(payload);
-                            }}>
-                                <Text style={styles.saveButtonText}>Save Changes</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Date Pickers */}
-                        {showIssueDatePicker && (
-                            <DateTimePicker
-                                value={formData.issueDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={(event, date) => {
-                                    setShowIssueDatePicker(Platform.OS === 'ios');
-                                    if (date) handleInputChange('issueDate', date);
-                                }}
-                            />
-                        )}
-                        {showExpirationDatePicker && (
-                            <DateTimePicker
-                                value={formData.expirationDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={(event, date) => {
-                                    setShowExpirationDatePicker(Platform.OS === 'ios');
-                                    if (date) handleInputChange('expirationDate', date);
-                                }}
-                            />
-                        )}
+                        {isEditMode ? renderEditMode() : renderViewMode()}
                     </ScrollView>
+
+                    {/* Footer for View Mode */}
+                    {!isEditMode && (
+                        <View style={styles.viewModeFooter}>
+                            <TouchableOpacity style={styles.closeButtonFull} onPress={onClose}>
+                                <Text style={styles.closeButtonText}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             </View>
         </Modal>
@@ -1065,6 +1242,28 @@ const styles = StyleSheet.create({
         height: 12,
         tintColor: ColorConstants.BLACK2,
     },
+    editInfoButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: ColorConstants.DARK_CYAN,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        marginRight: 10,
+        alignSelf: 'center'
+        // marginTop: 6
+    },
+    editInfoIcon: {
+        width: 14,
+        height: 14,
+        tintColor: ColorConstants.WHITE,
+        marginRight: 6,
+    },
+    editInfoText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: ColorConstants.WHITE,
+    },
     scrollContent: {
         padding: 20,
     },
@@ -1074,8 +1273,46 @@ const styles = StyleSheet.create({
         color: ColorConstants.BLACK2,
         marginBottom: 8,
     },
-    inputContainer: {
+    labelView: {
+        fontFamily: Fonts.mulishBold,
+        fontSize: 12,
+        color: ColorConstants.DARK_CYAN,
+        marginBottom: 6,
+        textTransform: 'uppercase',
+    },
+    valueBox: {
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        height: 48,
+        justifyContent: 'center',
         marginBottom: 16,
+    },
+    valueText: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 12,
+        color: ColorConstants.BLACK2,
+    },
+    emptyText: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 12,
+        color: ColorConstants.GRAY,
+    },
+    notesBox: {
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        justifyContent: 'center',
+        marginBottom: 16,
+        paddingVertical: 15
+    },
+    notesText: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 12,
+        color: ColorConstants.BLACK2,
+    },
+    inputContainer: {
+        marginBottom: 6,
         position: 'relative',
     },
     dropdownButton: {
@@ -1185,7 +1422,8 @@ const styles = StyleSheet.create({
     tagsDisplayRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginTop: 12,
+        marginTop: 8,
+        marginBottom: 12,
         gap: 8,
     },
     tagChip: {
@@ -1251,6 +1489,38 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.ManropeSemiBold,
         fontSize: 12,
         color: ColorConstants.PRIMARY_BROWN,
+    },
+    tagChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    familyChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    professionalChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    personalChipView: {
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        borderWidth: 1,
+        borderColor: ColorConstants.BROWN20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 20,
     },
     removeTagBtn: {
         padding: 2,
@@ -1339,6 +1609,38 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.ManropeMedium,
         fontSize: 12,
         color: ColorConstants.BLACK2,
+    },
+    viewModeFooter: {
+        paddingHorizontal: 20,
+        paddingBottom: 24,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    closeButtonFull: {
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
+        height: 42,
+        width: 100,
+        alignSelf: 'flex-end',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    closeButtonText: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 16,
+        color: ColorConstants.WHITE,
+    },
+    previewButton: {
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    previewButtonText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: ColorConstants.WHITE,
     },
     footer: {
         flexDirection: 'row',

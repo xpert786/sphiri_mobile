@@ -461,9 +461,11 @@ export default function ContactDetails() {
                         >
                             <Image source={Icons.ic_website} style={styles.profileIcon} />
                             <View style={[styles.infoTextContainer, { flexDirection: 'row', alignItems: 'flex-end', gap: 6 }]}>
-                                <View>
+                                <View style={{ width: '92%' }}>
                                     <Text style={styles.profileLabel}>WEBSITE</Text>
-                                    <Text style={styles.valueText}>{selectedContact?.website || 'No website provided'}</Text>
+                                    <Text style={styles.valueText} numberOfLines={2} ellipsizeMode="tail">
+                                        {selectedContact?.website || 'No website provided'}
+                                    </Text>
                                 </View>
                                 <Image source={Icons.ic_open_link} style={{ width: 14, height: 14, tintColor: ColorConstants.DARK_CYAN, marginBottom: 2 }} />
                             </View>

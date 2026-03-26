@@ -149,8 +149,11 @@ export default function HomeOnwerDoc() {
     const [editingDocumentId, setEditingDocumentId] = useState<number | null>(null);
     const [editingDocumentDetails, setEditingDocumentDetails] = useState<any | null>(null);
 
-    // Top Dropdown State
-    const [showTopDropdown, setShowTopDropdown] = useState(false);
+    // Items To Show State
+    const [itemsToShow, setItemsToShow] = useState<number | 'All'>(6);
+    const [showItemsDropdown, setShowItemsDropdown] = useState(false);
+    const showOptions = [6, 12, 24, 50, 'All'];
+
 
     // File Menu State
     const [activeFileMenu, setActiveFileMenu] = useState<string | null>(null);
@@ -554,41 +557,31 @@ export default function HomeOnwerDoc() {
         );
     }
 
-    // --- Custom Dropdown Content ---
-    const renderTopDropdown = () => {
-        if (!showTopDropdown) return null;
 
-        const isAllDocs = activeTab === 'All Documents';
-        const items = isAllDocs ? docFilters : folderFilters;
-        const toggle = isAllDocs ? toggleDocFilter : toggleFolderFilter;
+
+    const renderItemsToShowDropdown = () => {
+        if (!showItemsDropdown) return null;
 
         return (
-            <View style={styles.customDropdownCard}>
-                {/* Header in Dropdown */}
-                <TouchableOpacity style={styles.dropdownHeader} onPress={() => setShowTopDropdown(false)}>
-                    <Text style={styles.dropdownHeaderText}>{isAllDocs ? 'All Documents' : 'All Folders'}</Text>
-                    <Image source={Icons.ic_up_arrow} style={[styles.dropdownArrow, { tintColor: '#666' }]} />
-                </TouchableOpacity>
-                <View style={styles.dropdownSeparator} />
-
-                {/* List of checkbox items */}
-                <View style={isAllDocs ? styles.checkboxGrid : styles.checkboxList}>
-                    {items.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={[styles.checkboxItem, isAllDocs ? { width: '48%' } : { width: '100%' }]}
-                            onPress={() => toggle(item.id)}
-                        >
-                            <View style={styles.checkboxBox}>
-                                {item.checked && <Image source={Icons.ic_checkbox_tick} style={styles.tickIcon} />}
-                            </View>
-                            <Text style={styles.checkboxLabel}>{item.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+            <View style={styles.itemsDropdownOverlay}>
+                {showOptions.map((option) => (
+                    <TouchableOpacity
+                        key={option.toString()}
+                        style={styles.itemsDropdownItem}
+                        onPress={() => {
+                            setItemsToShow(option as any);
+                            setShowItemsDropdown(false);
+                        }}
+                    >
+                        {itemsToShow === option && (
+                            <Image source={Icons.ic_checkbox_tick} style={styles.checkIcon} />
+                        )}
+                        <Text style={styles.itemsDropdownItemText}>{option}</Text>
+                    </TouchableOpacity>
+                ))}
             </View>
-        )
-    }
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -638,40 +631,45 @@ export default function HomeOnwerDoc() {
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'All Documents' && styles.tabButtonActive]}
-                        onPress={() => { setActiveTab('All Documents'); setShowTopDropdown(false); }}
+                        onPress={() => { setActiveTab('All Documents'); }}
                     >
                         <Text style={[styles.tabText]}>All Documents</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'Folder Management' && styles.tabButtonActive]}
-                        onPress={() => { setActiveTab('Folder Management'); setShowTopDropdown(false); }}
+                        onPress={() => { setActiveTab('Folder Management'); }}
                     >
                         <Text style={[styles.tabText]}>Folder Management</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Search Bar */}
-                <View style={[styles.searchContainer, { marginHorizontal: 20, marginBottom: 12 }]}>
-                    <Image source={Icons.ic_search} style={styles.searchIcon} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder={activeTab === 'All Documents' ? "Search documents..." : "Search folders..."}
-                        placeholderTextColor={ColorConstants.DARK_CYAN}
-                    />
-                </View>
+                {/* Search Bar & Show Dropdown Row */}
+                <View style={styles.searchAndShowRow}>
+                    <View style={styles.searchContainer}>
+                        <Image source={Icons.ic_search} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder={activeTab === 'All Documents' ? "Search documents..." : "Search folders..."}
+                            placeholderTextColor={ColorConstants.DARK_CYAN}
+                        />
+                    </View>
 
-                {/* Dropdown Trigger */}
-                <View style={{ zIndex: 1000, marginHorizontal: 20, marginBottom: 12 }}>
-                    <TouchableOpacity
-                        style={[styles.dropdownContainer]}
-                        onPress={() => setShowTopDropdown(!showTopDropdown)}
-                    >
-                        <Text style={styles.dropdownText}>{activeTab === 'All Documents' ? 'All Documents' : 'All Folders'}</Text>
-                        <Image source={Icons.ic_down_arrow} style={styles.dropdownArrow} />
-                    </TouchableOpacity>
+                    <Text style={styles.showLabel}>Show:</Text>
 
-                    {/* Render Dropdown Here (Overlay) */}
-                    {renderTopDropdown()}
+                    <View style={{ zIndex: 1100 }}>
+                        <TouchableOpacity
+                            style={styles.showDropdownTrigger}
+                            onPress={() => setShowItemsDropdown(!showItemsDropdown)}
+                        >
+                            <Text style={styles.showDropdownText}>{itemsToShow}</Text>
+                            <View style={{ transform: [{ rotate: showItemsDropdown ? '180deg' : '0deg' }] }}>
+                                <Image source={Icons.ic_down_arrow} style={styles.showDropdownArrow} />
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Items To Show List (Shadow/Overlay) */}
+                        {renderItemsToShowDropdown()}
+                    </View>
                 </View>
 
                 {/* Content */}
@@ -683,7 +681,7 @@ export default function HomeOnwerDoc() {
                                 <ActivityIndicator size="large" color={ColorConstants.DARK_CYAN} style={{ marginTop: 20 }} />
                             ) : documents.length > 0 ? (
                                 <FlatList
-                                    data={documents}
+                                    data={itemsToShow === 'All' ? documents : documents.slice(0, itemsToShow)}
                                     keyExtractor={(item) => item.id.toString()}
                                     renderItem={({ item }) => (
                                         <TouchableOpacity
@@ -714,10 +712,10 @@ export default function HomeOnwerDoc() {
                             {isCategoriesLoading ? (
                                 <ActivityIndicator size="large" color={ColorConstants.DARK_CYAN} style={{ marginVertical: 20 }} />
                             ) : categories.length > 0 ? (
-                                categories.map((folder, index) => (
+                                (itemsToShow === 'All' ? categories : categories.slice(0, itemsToShow)).map((folder, index, array) => (
                                     <React.Fragment key={folder.id}>
                                         {renderFolderItem(folder)}
-                                        {index < categories.length - 1 && <View style={styles.folderSeparator} />}
+                                        {index < array.length - 1 && <View style={styles.folderSeparator} />}
                                     </React.Fragment>
                                 ))
                             ) : (
