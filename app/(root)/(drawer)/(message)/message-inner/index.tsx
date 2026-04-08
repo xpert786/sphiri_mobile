@@ -38,6 +38,7 @@ export default function MessageInner() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const textInputRef = useRef<TextInput>(null);
 
   // WebSocket Ref
   const wsServiceRef = useRef<WebSocketService | null>(null);
@@ -113,26 +114,51 @@ export default function MessageInner() {
     }
   };
 
-  const handleSendMessage = () => {
-    if (!message.trim() || !id) return;
+  const handleSendMessage = async () => {
+    if (!message.trim() || !id || loading) return;
+    const currentMsg = message.trim();
+
+    // Clear input immediately for better UX
+    setMessage('');
+    textInputRef.current?.clear(); // Native clear for iOS reliability
+    setLoading(true);
     Keyboard.dismiss();
 
-    // Send text purely through WebSocket (attachment: null)
-    const sent = wsServiceRef.current?.send({
+    try {
+      // 1. Safety API Call
+      const response = await apiPost(`${ApiConstants.VENDOR_MESSAGES}${id}/`, { text: currentMsg });
+      console.log("Send Message API Response:", response.data);
+
+      if (response.data) {
+        setConversationDetails((prev: any) => {
+          if (prev?.messages?.some((m: any) => m.id === response.data.id)) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            messages: [...(prev?.messages || []), response.data],
+          };
+        });
+
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Error sending message via API:", error);
+      // Optional: Restore message if sending failed
+      // setMessage(currentMsg);
+    } finally {
+      setLoading(false);
+    }
+
+    // 2. Parallel WebSocket Send
+    wsServiceRef.current?.send({
       type: "message",
-      text: message,
+      text: currentMsg,
       attachment: null
     });
-
-    if (sent) {
-      setMessage('');
-      // Since backend broadcasts the message back in `type: "message"`, 
-      // the state will update automatically via `onMessage`. 
-      // If optimistic update is desired, appending here is also fine 
-      // (but must catch duplicate via ID check on incoming WS).
-    } else {
-      console.error("Failed to send message via WS");
-    }
   };
 
   const handlePickImage = async () => {
@@ -353,6 +379,7 @@ export default function MessageInner() {
 
               <View style={styles.inputWrapper}>
                 <TextInput
+                  ref={textInputRef}
                   style={styles.input}
                   placeholder="Write your messages here..."
                   placeholderTextColor={ColorConstants.GRAY}

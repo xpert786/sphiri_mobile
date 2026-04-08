@@ -37,8 +37,35 @@ const SendProposalModal: React.FC<SendProposalModalProps> = ({
     const [serviceTitle, setServiceTitle] = useState('');
     const [description, setDescription] = useState('');
     const [estimatedAmount, setEstimatedAmount] = useState('');
-    const [validForDays, setValidForDays] = useState('14'); // Default based on image
+    const [validForDays, setValidForDays] = useState(''); // Default based on image
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+    const handleInputChange = (field: string, value: string) => {
+        if (field === 'serviceTitle') setServiceTitle(value);
+        if (field === 'description') setDescription(value);
+        if (field === 'estimatedAmount') setEstimatedAmount(value);
+        if (field === 'validForDays') setValidForDays(value);
+
+        if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            });
+        }
+    };
+
+    const validate = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!serviceTitle.trim()) newErrors.serviceTitle = 'Service title is required';
+        if (!description.trim()) newErrors.description = 'Description is required';
+        if (!estimatedAmount.trim()) newErrors.estimatedAmount = 'Estimated amount is required';
+        if (!validForDays.trim()) newErrors.validForDays = 'Valid days is required';
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleSend = async () => {
         if (!clientId) {
@@ -46,8 +73,7 @@ const SendProposalModal: React.FC<SendProposalModalProps> = ({
             return;
         }
 
-        if (!serviceTitle.trim()) {
-            Alert.alert("Validation", "Please enter a service title.");
+        if (!validate()) {
             return;
         }
 
@@ -130,35 +156,39 @@ const SendProposalModal: React.FC<SendProposalModalProps> = ({
                             label="Service Title"
                             placeholder="e.g., Annual Plumbing Inspection"
                             value={serviceTitle}
-                            onChangeText={setServiceTitle}
+                            onChangeText={(val) => handleInputChange('serviceTitle', val)}
+                            error={errors.serviceTitle}
                         />
 
                         <CustomTextInput
                             label="Description"
                             placeholder="Detailed Description on the service proposal..."
                             value={description}
-                            onChangeText={setDescription}
+                            onChangeText={(val) => handleInputChange('description', val)}
                             multiline={true}
                             inputStyles={{ minHeight: 120, textAlignVertical: 'top' }}
+                            error={errors.description}
                         />
 
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}>
                                 <CustomTextInput
                                     label="Estimated Amount"
-                                    placeholder=""
+                                    placeholder="0.00"
                                     value={estimatedAmount}
-                                    onChangeText={setEstimatedAmount}
+                                    onChangeText={(val) => handleInputChange('estimatedAmount', val)}
                                     keyboardType="numeric"
+                                    error={errors.estimatedAmount}
                                 />
                             </View>
                             <View style={{ flex: 1, marginLeft: 10 }}>
                                 <CustomTextInput
                                     label="Valid For (days)"
-                                    placeholder="14"
+                                    placeholder="Enter days"
                                     value={validForDays}
-                                    onChangeText={setValidForDays}
+                                    onChangeText={(val) => handleInputChange('validForDays', val)}
                                     keyboardType="numeric"
+                                    error={errors.validForDays}
                                 />
                             </View>
                         </View>
@@ -166,7 +196,7 @@ const SendProposalModal: React.FC<SendProposalModalProps> = ({
                         {/* Footer Actions */}
                         <View style={styles.footer}>
                             <TouchableOpacity style={styles.draftBtn} onPress={onClose}>
-                                <Text style={styles.draftText}>Draft</Text>
+                                <Text style={styles.draftText}>Cancel</Text>
                             </TouchableOpacity>
                             <CommonButton
                                 title={loading ? "Sending..." : "Send Proposal"}

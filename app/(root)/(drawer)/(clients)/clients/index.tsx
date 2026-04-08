@@ -9,6 +9,7 @@ import { capitalizeFirstLetter } from '@/constants/Helper';
 import { StringConstants } from '@/constants/StringConstants';
 import AddClientModal from '@/modals/AddClientModal';
 import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -112,6 +113,15 @@ export default function Clients() {
         client.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const getAvatarInitials = (name: string) => {
+        if (!name) return '??';
+        const names = name.split(' ');
+        if (names.length >= 2) {
+            return `${names[0].charAt(0)}${names[1].charAt(0)}`.toUpperCase();
+        }
+        return name.charAt(0).toUpperCase();
+    };
+
     const renderClientItem = ({ item: doc }: { item: Client }) => (
         <View key={doc.id} style={styles.cardContainer}>
             <TouchableOpacity
@@ -120,8 +130,20 @@ export default function Clients() {
                 activeOpacity={0.9}
             >
                 <View style={styles.cardHeader}>
-                    <View style={styles.headerTitleRow}>
-                        <Text style={styles.cardTitle}>{capitalizeFirstLetter(doc.name)}</Text>
+                    <View style={styles.headerPrimaryRow}>
+                        <View style={styles.avatarCircle}>
+                            <Text style={styles.avatarText}>{getAvatarInitials(doc.name)}</Text>
+                        </View>
+                        
+                        <View style={styles.headerInfo}>
+                            <Text style={styles.cardTitle} numberOfLines={1}>
+                                {capitalizeFirstLetter(doc.name)}
+                            </Text>
+                            <Text style={styles.cardSubtitle} numberOfLines={1}>
+                                {doc.email}
+                            </Text>
+                        </View>
+
                         <View style={styles.headerActions}>
                             <TouchableOpacity
                                 style={styles.menuTrigger}
@@ -129,44 +151,59 @@ export default function Clients() {
                             >
                                 <Image source={Icons.ic_dots_vertical} style={styles.dotsIcon} />
                             </TouchableOpacity>
-                            <Image
-                                source={expandedId === doc.id ? Icons.ic_up_arrow : Icons.ic_down_arrow}
-                                style={styles.chevronIcon}
+                            <MaterialCommunityIcons
+                                name={expandedId === doc.id ? "chevron-up" : "chevron-down"}
+                                size={24}
+                                color={ColorConstants.BLACK2}
                             />
                         </View>
                     </View>
 
-                    <View style={styles.fileTypeBadge}>
-                        <Text style={styles.fileTypeText}>{doc.rating.toFixed(1)} ★</Text>
-                    </View>
-
                     {expandedId === doc.id && (
                         <View style={styles.expandedContent}>
-                            <Text style={styles.infoHeading}>Client Information</Text>
+                            <View style={styles.divider} />
+                            
+                            <Text style={styles.infoHeading}>Client Contact</Text>
+                            
+                            <View style={styles.detailCard}>
+                                <View style={styles.infoRow}>
+                                    <View style={[styles.infoIconBox, { backgroundColor: ColorConstants.LIGHT_PEACH3 }]}>
+                                        <MaterialCommunityIcons name="email-outline" size={20} color={ColorConstants.PRIMARY_BROWN} />
+                                    </View>
+                                    <View style={styles.infoTextContainer}>
+                                        <Text style={styles.infoLabel}>Email Address</Text>
+                                        <Text style={styles.infoValue}>{doc.email}</Text>
+                                    </View>
+                                </View>
 
-                            <View style={styles.infoRow}>
-                                <Text style={styles.infoLabel}>Contact Email</Text>
-                                <Text style={styles.infoValue}>{doc.email}</Text>
+                                <View style={styles.infoRow}>
+                                    <View style={[styles.infoIconBox, { backgroundColor: ColorConstants.LIGHT_PEACH3 }]}>
+                                        <MaterialCommunityIcons name="phone" size={20} color={ColorConstants.PRIMARY_BROWN} />
+                                    </View>
+                                    <View style={styles.infoTextContainer}>
+                                        <Text style={styles.infoLabel}>Phone Number</Text>
+                                        <Text style={styles.infoValue}>{doc.phone || 'Not available'}</Text>
+                                    </View>
+                                </View>
                             </View>
 
-                            <View style={styles.infoRow}>
-                                <Text style={styles.infoLabel}>Contact Number</Text>
-                                <Text style={styles.infoValue}>{doc.phone || 'N/A'}</Text>
-                            </View>
-
-                            <View style={styles.infoRow}>
-                                <Text style={styles.infoLabel}>Services</Text>
-                                <Text style={styles.infoValue}>{doc.services_count}</Text>
-                            </View>
-
-                            <View style={styles.infoRow}>
-                                <Text style={styles.infoLabel}>Last Service	</Text>
-                                <Text style={styles.infoValue}>{doc.last_service_display}</Text>
-                            </View>
-
-                            <View style={styles.infoRow}>
-                                <Text style={styles.infoLabel}>Status</Text>
-                                <Text style={[styles.infoValue, styles.statusText]}>{doc.status_display}</Text>
+                            <Text style={styles.infoHeading}>Service Overview</Text>
+                            
+                            <View style={styles.statsRow}>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>Services</Text>
+                                    <Text style={styles.statValue}>{doc.services_count}</Text>
+                                </View>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>Last Active</Text>
+                                    <Text style={styles.statValue}>{doc.last_service_display}</Text>
+                                </View>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>Status</Text>
+                                    <View style={styles.statusBadge}>
+                                        <Text style={styles.statusBadgeText}>{doc.status_display}</Text>
+                                    </View>
+                                </View>
                             </View>
                         </View>
                     )}
@@ -327,7 +364,6 @@ const styles = StyleSheet.create({
     },
     docWrapper: {
         marginHorizontal: 20
-
     },
     searchBar: {
         flexDirection: 'row',
@@ -338,73 +374,98 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         marginTop: 10,
-        height: 39,
+        height: 44,
     },
     searchIcon: {
-        width: 14,
-        height: 14,
+        width: 16,
+        height: 16,
         tintColor: ColorConstants.DARK_CYAN,
     },
     searchInput: {
         flex: 1,
-        marginLeft: 6,
+        marginLeft: 8,
         fontFamily: Fonts.mulishRegular,
-        fontSize: 12,
+        fontSize: 14,
         color: ColorConstants.BLACK2,
     },
     documentsListTitle: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 20,
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 22,
         color: ColorConstants.BLACK2,
-        marginTop: 15
+        marginTop: 20
     },
     documentsListSubTitle: {
         fontFamily: Fonts.mulishRegular,
-        fontSize: 12,
+        fontSize: 14,
         color: ColorConstants.DARK_CYAN,
-    },
-    documentsList: {
-        marginTop: 24,
+        marginTop: 4
     },
     cardContainer: {
         marginBottom: 16,
+        marginHorizontal: 20,
         position: 'relative',
-        marginHorizontal: 20
     },
     documentCard: {
         backgroundColor: ColorConstants.WHITE,
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3,
-        borderRadius: 16,
+        borderRadius: 20,
         padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
     },
     expandedCard: {
-        borderColor: ColorConstants.GRAY3,
+        borderColor: ColorConstants.PRIMARY_BROWN + '40', // 25% opacity
     },
     cardHeader: {
         width: '100%',
     },
-    headerTitleRow: {
+    headerPrimaryRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    avatarCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    avatarText: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 18,
+        color: ColorConstants.PRIMARY_BROWN,
+    },
+    headerInfo: {
+        flex: 1,
     },
     cardTitle: {
         fontFamily: Fonts.ManropeSemiBold,
-        fontSize: 16,
+        fontSize: 17,
         color: ColorConstants.BLACK2,
-        flex: 1,
+    },
+    cardSubtitle: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 13,
+        color: ColorConstants.DARK_CYAN,
+        marginTop: 2,
     },
     headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        marginLeft: 8,
     },
     menuTrigger: {
-        backgroundColor: '#F1F3F5',
-        width: 28,
-        height: 28,
-        borderRadius: 6,
+        backgroundColor: ColorConstants.GRAY_SHADE,
+        width: 32,
+        height: 32,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -413,148 +474,111 @@ const styles = StyleSheet.create({
         height: 16,
         tintColor: ColorConstants.BLACK2,
     },
-    chevronIcon: {
-        width: 16,
-        height: 16,
-        tintColor: ColorConstants.BLACK2,
-        resizeMode: 'contain',
-    },
-    fileTypeBadge: {
-        backgroundColor: '#F7E7E2',
-        alignSelf: 'flex-start',
-        paddingHorizontal: 12,
-        paddingVertical: 2,
-        borderRadius: 12,
-        marginTop: 8,
-    },
-    fileTypeText: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 12,
-        color: ColorConstants.BLACK2,
-    },
     expandedContent: {
-        marginTop: 20,
+        marginTop: 16,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: ColorConstants.GRAY_SHADE,
+        marginBottom: 16,
     },
     infoHeading: {
         fontFamily: Fonts.ManropeSemiBold,
-        fontSize: 18,
-        color: ColorConstants.BLACK2,
-        marginBottom: 16,
+        fontSize: 14,
+        color: ColorConstants.DARK_CYAN,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    detailCard: {
+        backgroundColor: ColorConstants.GRAY_SHADE,
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 20,
     },
     infoRow: {
-        marginTop: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 8,
+    },
+    infoIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    infoTextContainer: {
+        flex: 1,
     },
     infoLabel: {
         fontFamily: Fonts.mulishRegular,
-        fontSize: 12,
+        fontSize: 11,
         color: ColorConstants.GRAY,
-        marginBottom: 4,
     },
     infoValue: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 15,
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 14,
+        color: ColorConstants.BLACK2,
+        marginTop: 1,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    statItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    statLabel: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 12,
+        color: ColorConstants.DARK_CYAN,
+        marginBottom: 4,
+    },
+    statValue: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 16,
         color: ColorConstants.BLACK2,
     },
-    statusText: {
-        backgroundColor: ColorConstants.GREEN2,
-        color: ColorConstants.WHITE,
-        borderRadius: 20,
-        paddingHorizontal: 12,
-        paddingVertical: 2,
-        alignSelf: 'flex-start',
-
-    },
-    expiringBadge: {
-        backgroundColor: '#F55151',
-        borderRadius: 10,
-        paddingHorizontal: 12,
+    statusBadge: {
+        backgroundColor: ColorConstants.GREEN10,
+        paddingHorizontal: 10,
         paddingVertical: 4,
-        alignSelf: 'flex-start',
+        borderRadius: 8,
     },
-    expiringText: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 12,
-        color: ColorConstants.WHITE,
+    statusBadgeText: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 11,
+        color: ColorConstants.GREEN,
     },
     popoverMenu: {
         position: 'absolute',
-        top: 45,
+        top: 50,
         right: 48,
         backgroundColor: ColorConstants.WHITE,
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3,
-        borderRadius: 8,
-        width: 130,
-        padding: 4,
+        borderRadius: 12,
+        width: 160,
+        padding: 6,
         zIndex: 2000,
         elevation: 8,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.15,
-        shadowRadius: 10,
+        shadowRadius: 15,
     },
     popoverItem: {
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-    },
-    popoverTextActive: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 12,
-        color: ColorConstants.BLACK2,
-        backgroundColor: '#F7E7E2',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
     },
     popoverText: {
-        fontFamily: Fonts.ManropeRegular,
-        fontSize: 12,
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 13,
         color: ColorConstants.DARK_CYAN,
-        marginLeft: 8,
     },
-    pagination: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        marginTop: 10,
-        gap: 6,
-    },
-    pageNumber: {
-        width: 32,
-        height: 32,
-        borderWidth: 0.5,
-        borderColor: ColorConstants.DARK_CYAN,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    activePage: {
-        backgroundColor: '#4A5568',
-        borderColor: '#4A5568',
-    },
-    activePageText: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 14,
-        color: ColorConstants.WHITE,
-    },
-    pageText: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 14,
-        color: ColorConstants.BLACK2,
-    },
-    pageArrow: {
-        width: 32,
-        height: 32,
-        borderWidth: 0.5,
-        borderColor: ColorConstants.DARK_CYAN,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    leftArrow: {
-        borderTopLeftRadius: 8,
-        borderBottomLeftRadius: 8,
-    },
-    rightArrow: {
-        borderTopRightRadius: 8,
-        borderBottomRightRadius: 8,
-    },
-})
+});

@@ -96,9 +96,9 @@ const StartConversationModal: React.FC<StartConversationModalProps> = ({ visible
                     {isSelected && <View style={styles.radioButtonInner} />}
                 </View>
                 <View style={styles.clientInfo}>
-                    <Text style={styles.clientName}>{item.name}</Text>
-                    <Text style={styles.clientEmail}>{item.email}</Text>
-                    <Text style={styles.clientPhone}>{item.phone}</Text>
+                    <Text style={styles.clientName}>{item?.name}</Text>
+                    <Text style={styles.clientEmail}>{item?.email}</Text>
+                    {item?.phone && <Text style={styles.clientPhone}>{item?.phone}</Text>}
                 </View>
             </TouchableOpacity>
         );
@@ -240,7 +240,8 @@ const styles = StyleSheet.create({
     },
     clientItem: {
         flexDirection: 'row',
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         alignItems: 'flex-start',
     },
     radioButton: {

@@ -3,6 +3,7 @@ import { ApiConstants } from '@/api/endpoints'; // Added import
 import { Icons } from '@/assets';
 import CommonButton from '@/components/CommonButton';
 import DocumentCard, { DocumentItem } from '@/components/DocumentCard';
+import FilterDropdown from '@/components/FilterDropdown';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants'; // Ensure this matches user's path
 import { Fonts } from '@/constants/Fonts';
@@ -11,7 +12,8 @@ import CreateNewFolderModal from '@/modals/CreateNewFolderModal';
 import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
 import UploadDocumentModal from '@/modals/UploadDocumentModal';
 import { styles } from '@/styles/_documentStyles';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -109,6 +111,8 @@ interface ApiDocument {
     expiration_date: string;
     status: string;
     is_shared: boolean;
+    property_name: string | null;
+    tag_names: string[] | null;
     created_at: string;
     updated_at: string;
 }
@@ -177,69 +181,110 @@ export default function HomeOnwerDoc() {
     const [categories, setCategories] = useState<FolderItem[]>([]); // Added category state
     const [isCategoriesLoading, setIsCategoriesLoading] = useState(false); // Added category loading state
 
-    useEffect(() => {
-        const init = async () => {
-            setIsLoading(true);
-            setIsCategoriesLoading(true);
-            try {
-                // Fetch both in parallel
-                const [docsResponse, categoriesResponse] = await Promise.all([
-                    apiGet(ApiConstants.HOMEOWNER_DOCUMENTS),
-                    apiGet(ApiConstants.MY_FOLDERS_LIST)
-                ]);
+    // Filter states
+    const [selectedCategory, setSelectedCategory] = useState<string>('All');
+    const [apiCategoryOptions, setApiCategoryOptions] = useState<string[]>(['All']);
+    const [selectedProperty, setSelectedProperty] = useState<string>('All');
+    const [apiPropertyOptions, setApiPropertyOptions] = useState<string[]>(['All']);
+    const [selectedTag, setSelectedTag] = useState<string>('All');
+    const [apiTagOptions, setApiTagOptions] = useState<string[]>(['All']);
 
-                const docsData = docsResponse.data as ApiResponse;
-                const categoriesData = categoriesResponse.data;
-
-                // Process documents for "All Documents" tab
-                const today = new Date().toISOString().split('T')[0];
-                const mappedDocs: DocumentItem[] = docsData.results.map(doc => ({
-                    id: doc.id,
-                    title: doc.title,
-                    badgeText: doc.category_name || doc.file_type,
-                    folderName: doc.category_name || 'Uncategorized',
-                    fileType: doc.file_type,
-                    fileSize: doc.file_size_display,
-                    uploadedBy: doc.uploaded_by,
-                    issuedDate: doc.issue_date,
-                    expirationDate: doc.expiration_date,
-                    status: doc.status,
-                    isShared: doc.is_shared,
-                    linkedContacts: doc.linked_contacts || [],
-                    linkedFamilyMembers: doc.linked_family_members || [],
-                    linkedVendors: doc.linked_vendors || [],
-                    versionCount: doc.version,
-                    isLocked: false,
-                    isExpiringSoon: doc.expiration_date === today,
-                    file_url: doc.file_url,
-                }));
-                setDocuments(mappedDocs);
-
-                // Process categories with documents for "Folder Management" tab
-                const categoriesToTransform = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
-                const transformedFolders = transformCategoriesToFolders(categoriesToTransform, docsData.results);
-                setCategories(transformedFolders);
-
-            } catch (error) {
-                console.error("Initialization error:", error);
-            } finally {
-                setIsLoading(false);
-                setIsCategoriesLoading(false);
-            }
-        };
-        init();
-    }, []);
-    const fetchCategories = async () => {
+    const init = async () => {
+        setIsLoading(true);
         setIsCategoriesLoading(true);
         try {
-            // We need documents too to match them
-            const [docsResponse, categoriesResponse] = await Promise.all([
+            // Fetch all in parallel
+            const [docsResponse, categoriesResponse, defaultCategoriesResponse, propertiesResponse, tagsResponse] = await Promise.all([
                 apiGet(ApiConstants.HOMEOWNER_DOCUMENTS),
-                apiGet(ApiConstants.MY_FOLDERS_LIST)
+                apiGet(ApiConstants.MY_FOLDERS_LIST),
+                apiGet(ApiConstants.DEFAULT_CATEGORIES),
+                apiGet(ApiConstants.PROPERTIES),
+                apiGet(ApiConstants.DOCUMENT_TAGS)
             ]);
 
             const docsData = docsResponse.data as ApiResponse;
             const categoriesData = categoriesResponse.data;
+            const defaultCatsData = defaultCategoriesResponse.data;
+            const propsData = propertiesResponse.data;
+            const tagsData = tagsResponse.data;
+
+            // Sync API Categories for filter
+            const defaultCatItems = Array.isArray(defaultCatsData) ? defaultCatsData : (defaultCatsData.results || []);
+            const catNames = defaultCatItems.map((c: any) => c.name);
+            setApiCategoryOptions(['All', ...catNames]);
+
+            // Sync API Properties for filter
+            const propItems = Array.isArray(propsData) ? propsData : (propsData.results || []);
+            const propNames = propItems.map((p: any) => p.name);
+            setApiPropertyOptions(['All', ...propNames]);
+
+            // Sync API Tags for filter
+            const tagItems = Array.isArray(tagsData) ? tagsData : (tagsData.results || []);
+            const tagNames = tagItems.map((t: any) => t.name);
+            setApiTagOptions(['All', ...tagNames]);
+
+            // Process documents for "All Documents" tab
+            const today = new Date().toISOString().split('T')[0];
+            const mappedDocs: DocumentItem[] = docsData.results.map(doc => ({
+                id: doc.id,
+                title: doc.title,
+                badgeText: doc.category_name || doc.file_type,
+                folderName: doc.category_name || 'Uncategorized',
+                propertyName: doc.property_name || 'All', // Assuming property_name is available
+                tags: doc.tag_names || [],
+                fileType: doc.file_type,
+                fileSize: doc.file_size_display,
+                uploadedBy: doc.uploaded_by,
+                issuedDate: doc.issue_date,
+                expirationDate: doc.expiration_date,
+                status: doc.status,
+                isShared: doc.is_shared,
+                linkedContacts: doc.linked_contacts || [],
+                linkedFamilyMembers: doc.linked_family_members || [],
+                linkedVendors: doc.linked_vendors || [],
+                versionCount: doc.version,
+                isLocked: false,
+                isExpiringSoon: doc.expiration_date === today,
+                file_url: doc.file_url,
+            }));
+            setDocuments(mappedDocs);
+
+            // Process categories with documents for "Folder Management" tab
+            const categoriesToTransform = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
+            const transformedFolders = transformCategoriesToFolders(categoriesToTransform, docsData.results);
+            setCategories(transformedFolders);
+
+        } catch (error) {
+            console.error("Initialization error:", error);
+        } finally {
+            setIsLoading(false);
+            setIsCategoriesLoading(false);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            init();
+        }, [])
+    );
+    const fetchCategories = async () => {
+        setIsCategoriesLoading(true);
+        try {
+            // We need documents too to match them
+            const [docsResponse, categoriesResponse, defaultCategoriesResponse] = await Promise.all([
+                apiGet(ApiConstants.HOMEOWNER_DOCUMENTS),
+                apiGet(ApiConstants.MY_FOLDERS_LIST),
+                apiGet(ApiConstants.DEFAULT_CATEGORIES)
+            ]);
+
+            const docsData = docsResponse.data as ApiResponse;
+            const categoriesData = categoriesResponse.data;
+            const defaultCatsData = defaultCategoriesResponse.data;
+
+            // Sync API Categories for filter
+            const defaultCatItems = Array.isArray(defaultCatsData) ? defaultCatsData : (defaultCatsData.results || []);
+            const catNames = defaultCatItems.map((c: any) => c.name);
+            setApiCategoryOptions(['All', ...catNames]);
 
             const categoriesToTransform = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
             const transformedFolders = transformCategoriesToFolders(categoriesToTransform, docsData.results);
@@ -653,55 +698,119 @@ export default function HomeOnwerDoc() {
                             placeholderTextColor={ColorConstants.DARK_CYAN}
                         />
                     </View>
+                    <View style={{ width: '40%', flexDirection: 'row', alignItems: 'center' }}>
 
-                    <Text style={styles.showLabel}>Show:</Text>
+                        <Text style={styles.showLabel}>Show: </Text>
 
-                    <View style={{ zIndex: 1100 }}>
-                        <TouchableOpacity
-                            style={styles.showDropdownTrigger}
-                            onPress={() => setShowItemsDropdown(!showItemsDropdown)}
-                        >
-                            <Text style={styles.showDropdownText}>{itemsToShow}</Text>
-                            <View style={{ transform: [{ rotate: showItemsDropdown ? '180deg' : '0deg' }] }}>
-                                <Image source={Icons.ic_down_arrow} style={styles.showDropdownArrow} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ zIndex: 10 }}>
+                            <TouchableOpacity
+                                style={styles.showDropdownTrigger}
+                                onPress={() => setShowItemsDropdown(!showItemsDropdown)}
+                            >
+                                <Text style={styles.showDropdownText}>{itemsToShow}</Text>
+                                <View style={{ transform: [{ rotate: showItemsDropdown ? '180deg' : '0deg' }] }}>
+                                    <Image source={Icons.ic_down_arrow} style={styles.showDropdownArrow} />
+                                </View>
+                            </TouchableOpacity>
 
-                        {/* Items To Show List (Shadow/Overlay) */}
-                        {renderItemsToShowDropdown()}
+                            {/* Items To Show List (Shadow/Overlay) */}
+                            {renderItemsToShowDropdown()}
+                        </View>
                     </View>
                 </View>
+
+                {/* Filters - Show for All Documents only */}
+                {activeTab === 'All Documents' && (
+                    <View style={{ paddingHorizontal: 20, marginBottom: 16, flexDirection: 'row', gap: 10 }}>
+                        <View style={{ flex: 1 }}>
+                            <FilterDropdown
+                                label="Category"
+                                data={apiCategoryOptions}
+                                value={selectedCategory}
+                                onSelect={setSelectedCategory}
+                                placeholder="All"
+                                inputStyles={{ borderRadius: 12, height: 44 }}
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <FilterDropdown
+                                label="Property"
+                                data={apiPropertyOptions}
+                                value={selectedProperty}
+                                onSelect={setSelectedProperty}
+                                placeholder="All"
+                                inputStyles={{ borderRadius: 12, height: 44 }}
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <FilterDropdown
+                                label="Tags"
+                                data={apiTagOptions}
+                                value={selectedTag}
+                                onSelect={setSelectedTag}
+                                placeholder="All"
+                                inputStyles={{ borderRadius: 12, height: 44 }}
+                            />
+                        </View>
+                    </View>
+                )}
 
                 {/* Content */}
                 {activeTab === 'All Documents' ? (
                     <>
                         {/* Documents List */}
                         <View style={styles.documentsList}>
-                            {isLoading ? (
-                                <ActivityIndicator size="large" color={ColorConstants.DARK_CYAN} style={{ marginTop: 20 }} />
-                            ) : documents.length > 0 ? (
-                                <FlatList
-                                    data={itemsToShow === 'All' ? documents : documents.slice(0, itemsToShow)}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity
-                                            activeOpacity={0.8}
-                                            onPress={() => router.push({
-                                                pathname: '/(root)/(drawer)/upload-document/document-details',
-                                                params: { id: item.id.toString(), title: item.title }
-                                            })}
-                                        >
-                                            <DocumentCard item={item} />
-                                        </TouchableOpacity>
-                                    )}
-                                    showsVerticalScrollIndicator={false}
-                                    scrollEnabled={false}
-                                />
-                            ) : (
-                                <View style={{ alignItems: 'center', marginTop: 20 }}>
-                                    <Text style={{ fontFamily: 'Manrope-Regular', color: ColorConstants.DARK_CYAN }}>No documents found.</Text>
-                                </View>
-                            )}
+                            {(() => {
+                                const filteredDocs = documents.filter(doc => {
+                                    const matchCategory = selectedCategory === 'All'
+                                        ? true
+                                        : (doc.badgeText === selectedCategory || doc.folderName === selectedCategory);
+                                    const matchProperty = selectedProperty === 'All'
+                                        ? true
+                                        : (doc.propertyName === selectedProperty);
+                                    const matchTag = selectedTag === 'All'
+                                        ? true
+                                        : (doc.tags?.includes(selectedTag));
+                                    return matchCategory && matchProperty && matchTag;
+                                });
+                                const finalDocs = itemsToShow === 'All' ? filteredDocs : filteredDocs.slice(0, itemsToShow);
+
+                                if (isLoading) {
+                                    return <ActivityIndicator size="large" color={ColorConstants.DARK_CYAN} style={{ marginTop: 20 }} />;
+                                }
+
+                                if (finalDocs.length > 0) {
+                                    return (
+                                        <FlatList
+                                            data={finalDocs}
+                                            keyExtractor={(item) => item.id.toString()}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity
+                                                    activeOpacity={0.8}
+                                                    onPress={() => router.push({
+                                                        pathname: '/(root)/(drawer)/upload-document/document-details',
+                                                        params: { id: item.id.toString(), title: item.title }
+                                                    })}
+                                                >
+                                                    <DocumentCard item={item} />
+                                                </TouchableOpacity>
+                                            )}
+                                            showsVerticalScrollIndicator={false}
+                                            scrollEnabled={false}
+                                        />
+                                    );
+                                }
+
+                                return (
+                                    <View style={{ alignItems: 'center', marginTop: 20 }}>
+                                        <Text style={{ fontFamily: Fonts.ManropeRegular, color: ColorConstants.DARK_CYAN, textAlign: 'center', paddingHorizontal: 40, paddingTop: 70 }}>
+                                            {selectedCategory === 'All' && selectedProperty === 'All' && selectedTag === 'All'
+                                                ? "No documents found."
+                                                : "No documents found matching the criteria."}
+                                        </Text>
+                                    </View>
+                                );
+                            })()}
                         </View>
                     </>
                 ) : (

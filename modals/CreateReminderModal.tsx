@@ -2,12 +2,11 @@ import { Icons } from '@/assets';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import React, { useState } from 'react';
 import {
     Image,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -58,10 +57,10 @@ const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
 
     // Helper functions for formatting
     const formatDate = (date: Date) => {
-        const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${month}/${day}/${year}`;
     };
 
     const formatTime = (date: Date) => {
@@ -78,11 +77,6 @@ const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
-            setShowEndDatePicker(false);
-        }
-
         if (selectedDate) {
             if (datePickerMode === 'dueDate') {
                 handleInputChange('dueDate', selectedDate);
@@ -90,24 +84,11 @@ const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
                 handleInputChange('endDate', selectedDate);
             }
         }
-
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowDatePicker(false);
-            setShowEndDatePicker(false);
-        }
     };
 
     const handleTimeChange = (event: any, selectedTime?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowTimePicker(false);
-        }
-
         if (selectedTime) {
             handleInputChange('time', selectedTime);
-        }
-
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowTimePicker(false);
         }
     };
 
@@ -345,36 +326,27 @@ const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
                             </TouchableOpacity>
                         </View>
 
-                        {/* Date Picker for Due Date */}
-                        {showDatePicker && (
-                            <DateTimePicker
-                                value={formData.dueDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showDatePicker}
+                            value={formData.dueDate}
+                            onChange={handleDateChange}
+                            onClose={() => setShowDatePicker(false)}
+                        />
 
-                        {/* Date Picker for End Date */}
-                        {showEndDatePicker && (
-                            <DateTimePicker
-                                value={formData.endDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showEndDatePicker}
+                            value={formData.endDate}
+                            onChange={handleDateChange}
+                            onClose={() => setShowEndDatePicker(false)}
+                        />
 
-                        {/* Time Picker */}
-                        {showTimePicker && (
-                            <DateTimePicker
-                                value={formData.time}
-                                mode="time"
-                                is24Hour={false}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleTimeChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showTimePicker}
+                            value={formData.time}
+                            mode="time"
+                            onChange={handleTimeChange}
+                            onClose={() => setShowTimePicker(false)}
+                        />
                     </ScrollView>
                 </View>
             </View>

@@ -175,7 +175,7 @@ const Header: React.FC<CommonHeaderProps> = ({
 
                 {/* RIGHT SIDE */}
                 <View style={[styles.headerActions]}>
-                    {renderRight && renderRight()}
+
 
                     {showMenu && (
                         <TouchableOpacity
@@ -232,7 +232,9 @@ const Header: React.FC<CommonHeaderProps> = ({
                         )}
                     </TouchableOpacity>
                 </View>
+
             </View>
+            {renderRight && renderRight()}
         </>
     );
 };

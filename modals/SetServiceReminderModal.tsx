@@ -2,21 +2,21 @@ import { apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import CommonButton from '@/components/CommonButton';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import {
     Image,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 interface SetServiceReminderModalProps {
     visible: boolean;
@@ -31,18 +31,41 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
     onSetReminder,
     clientId,
 }) => {
-    const [serviceType, setServiceType] = useState('Select service type');
-    const [reminderDate, setReminderDate] = useState(new Date());
-    const [notifyDays, setNotifyDays] = useState('7');
-    const [recurring, setRecurring] = useState('One-time only');
+    const [serviceType, setServiceType] = useState('');
+    const [reminderDate, setReminderDate] = useState<Date | null>(null);
+    const [notifyDays, setNotifyDays] = useState('');
+    const [recurring, setRecurring] = useState('');
     const [notes, setNotes] = useState('');
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            });
+        }
+    };
+
     const serviceTypeOptions = ['Annual Plumbing Inspection', 'Electrical Maintaince', 'HVAC Checkup', 'General Maintaince'];
     const recurringOptions = ['One-time only', 'Quarterly', 'Monthly', 'Annually'];
+
+    const validate = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!serviceType) newErrors.serviceType = 'Service type is required';
+        if (!reminderDate) newErrors.reminderDate = 'Reminder date is required';
+        if (!notifyDays.trim()) newErrors.notifyDays = 'Notify days is required';
+        if (!recurring) newErrors.recurring = 'Recurrence is required';
+        if (!notes.trim()) newErrors.notes = 'Notes are required';
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleSet = async () => {
         if (!clientId) {
@@ -50,6 +73,7 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
             return;
         }
 
+        if (!validate()) return;
         setLoading(true);
         try {
             const recurringMap: { [key: string]: string } = {
@@ -61,7 +85,7 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
 
             const payload = {
                 service_type: serviceType,
-                reminder_date: reminderDate.toISOString().split('T')[0],
+                reminder_date: reminderDate?.toISOString().split('T')[0],
                 notify_before_days: parseInt(notifyDays) || 7,
                 recurring: recurringMap[recurring] || 'one_time',
                 notes: notes
@@ -72,6 +96,10 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
 
             if (response.data) {
                 if (onSetReminder) onSetReminder(response.data);
+                Toast.show({
+                    type: 'success',
+                    text1: 'Reminder set successfully',
+                });
                 onClose();
             }
         } catch (error) {
@@ -83,21 +111,16 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
     };
 
     const formatDate = (date: Date) => {
-        const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${month}/${day}/${year}`;
     };
 
     const onDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
-        }
         if (selectedDate) {
             setReminderDate(selectedDate);
-        }
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowDatePicker(false);
+            clearError('reminderDate');
         }
     };
 
@@ -108,6 +131,7 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
     const selectOption = (key: string, value: string) => {
         if (key === 'serviceType') setServiceType(value);
         if (key === 'recurring') setRecurring(value);
+        clearError(key);
         setOpenDropdown(null);
     };
 
@@ -117,7 +141,8 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
         value: string,
         options: string[],
         zIndex: number,
-        placeholder: string = 'Select option'
+        placeholder: string = 'Select option',
+        error?: string
     ) => (
         <View style={[styles.inputContainer, { zIndex }]}>
             <Text style={styles.label}>{label}</Text>
@@ -126,8 +151,8 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
                 onPress={() => toggleDropdown(key)}
                 activeOpacity={0.8}
             >
-                <Text style={[styles.inputText, value === placeholder && { color: ColorConstants.GRAY_50 }]}>
-                    {value}
+                <Text style={[styles.inputText, !value && { color: ColorConstants.GRAY_50 }]}>
+                    {value || placeholder}
                 </Text>
                 <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
             </TouchableOpacity>
@@ -145,6 +170,7 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
                     ))}
                 </View>
             )}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
     );
 
@@ -169,7 +195,7 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                        {renderDropdown('Service Type', 'serviceType', serviceType, serviceTypeOptions, 3000, 'Select service type')}
+                        {renderDropdown('Service Type', 'serviceType', serviceType, serviceTypeOptions, 3000, 'Select service type', errors.serviceType)}
 
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Reminder Date</Text>
@@ -177,37 +203,48 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
                                 style={styles.dropdownButton}
                                 onPress={() => setShowDatePicker(true)}
                             >
-                                <Text style={styles.inputText}>{formatDate(reminderDate)}</Text>
+                                <Text style={[styles.inputText, !reminderDate && { color: ColorConstants.GRAY_50 }]}>
+                                    {reminderDate ? formatDate(reminderDate) : 'MM/DD/YYYY'}
+                                </Text>
                                 <Image source={Icons.ic_calendar_outline} style={styles.inputIcon} />
                             </TouchableOpacity>
+                            {errors.reminderDate ? <Text style={styles.errorText}>{errors.reminderDate}</Text> : null}
                         </View>
 
                         <CustomTextInput
                             label="Notify Me before (days)"
-                            placeholder="7"
+                            placeholder="Enter number of days"
                             value={notifyDays}
-                            onChangeText={setNotifyDays}
+                            onChangeText={(val) => {
+                                setNotifyDays(val);
+                                clearError('notifyDays');
+                            }}
                             keyboardType="numeric"
+                            error={errors.notifyDays}
                         />
 
-                        {renderDropdown('Recurring', 'recurring', recurring, recurringOptions, 2000, 'One-time only')}
+                        {renderDropdown('Recurring', 'recurring', recurring, recurringOptions, 2000, 'Select recurrence', errors.recurring)}
 
                         <CustomTextInput
                             label="Notes"
                             placeholder="Add any specific note for this reminder..."
                             value={notes}
-                            onChangeText={setNotes}
+                            onChangeText={(val) => {
+                                setNotes(val);
+                                clearError('notes');
+                            }}
                             multiline={true}
                             inputStyles={{ minHeight: 80, alignItems: 'flex-start' }}
+                            error={errors.notes}
                         />
 
                         {/* Footer Actions */}
                         <View style={styles.footer}>
                             <TouchableOpacity style={styles.draftBtn} onPress={onClose}>
-                                <Text style={styles.draftText}>Draft</Text>
+                                <Text style={styles.draftText}>Cancel</Text>
                             </TouchableOpacity>
                             <CommonButton
-                                title="Set Reminder"
+                                title={"Set Reminder"}
                                 onPress={handleSet}
                                 containerStyle={styles.sendBtn}
                                 loading={loading}
@@ -215,14 +252,12 @@ const SetServiceReminderModal: React.FC<SetServiceReminderModalProps> = ({
                         </View>
                     </ScrollView>
 
-                    {showDatePicker && (
-                        <DateTimePicker
-                            value={reminderDate}
-                            mode="date"
-                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                            onChange={onDateChange}
-                        />
-                    )}
+                    <CustomDatePicker
+                        show={showDatePicker}
+                        value={reminderDate}
+                        onChange={onDateChange}
+                        onClose={() => setShowDatePicker(false)}
+                    />
                 </View>
             </View>
         </Modal>
@@ -290,6 +325,12 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         backgroundColor: ColorConstants.WHITE,
         height: 48 // Ensure consistent height
+    },
+    errorText: {
+        marginTop: 4,
+        fontSize: 11,
+        color: ColorConstants.RED,
+        fontFamily: 'Inter-Regular',
     },
     inputText: {
         fontFamily: Fonts.mulishRegular,

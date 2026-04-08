@@ -135,12 +135,7 @@ const AddTrusteeModal: React.FC<AddTrusteeModalProps> = ({
                     roles: response.data.roles || [],
                     access_triggers: response.data.access_triggers || [],
                 });
-                if (!isEditMode && response.data.default_inactivity_days) {
-                    setFormData(prev => ({
-                        ...prev,
-                        inactivityDays: String(response.data.default_inactivity_days),
-                    }));
-                }
+                // We no longer pre-fill inactivityDays as per user request to keep it empty initially
             }
         } catch (error) {
             console.error('Error fetching trustee options:', error);
@@ -183,7 +178,7 @@ const AddTrusteeModal: React.FC<AddTrusteeModalProps> = ({
             trigger: !formData.trigger ? 'Please select an access trigger' : '',
             inactivityDays:
                 formData.trigger === 'inactivity' && (!formData.inactivityDays || !Number.isFinite(inactivityNum) || inactivityNum <= 0)
-                    ? 'Inactivity days is required'
+                    ? 'This field is required'
                     : '',
         };
 
@@ -430,7 +425,7 @@ const AddTrusteeModal: React.FC<AddTrusteeModalProps> = ({
                                 label="Inactivity Days"
                                 value={formData.inactivityDays}
                                 onChangeText={(t) => handleInputChange('inactivityDays', t)}
-                                placeholder="30"
+                                placeholder="Enter number of days"
                                 keyboardType="numeric"
                                 error={errors.inactivityDays}
                             />
@@ -453,6 +448,9 @@ const AddTrusteeModal: React.FC<AddTrusteeModalProps> = ({
                                 )}
                             </TouchableOpacity>
                         </View>
+
+                        {/* Buffer space for bottom dropdowns */}
+                        {(showTriggerDropdown) && <View style={{ height: 150 }} />}
                     </ScrollView>
                 </View>
             </View>
@@ -509,7 +507,8 @@ const styles = StyleSheet.create({
         tintColor: ColorConstants.GRAY5
     },
     scrollContent: {
-        padding: 20
+        padding: 20,
+        paddingBottom: 40 // Default extra space
     },
     inputContainer: {
         marginBottom: 16
@@ -553,16 +552,16 @@ const styles = StyleSheet.create({
         borderColor: '#E0E0E0',
         borderRadius: 8,
         marginTop: 4,
-        // maxHeight: 180,
-        zIndex: 1000,
-        elevation: 5,
+        maxHeight: 180,
+        zIndex: 5000,
+        elevation: 10,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5
     },
     dropdownScroll: {
-        // maxHeight: 180
+        maxHeight: 180
     },
     dropdownItem: {
         paddingVertical: 12,

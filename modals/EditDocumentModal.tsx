@@ -4,7 +4,7 @@ import { Icons } from '@/assets';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
@@ -1109,29 +1109,23 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                     </TouchableOpacity>
                 </View>
 
-                {/* Date Pickers */}
-                {showIssueDatePicker && (
-                    <DateTimePicker
-                        value={formData.issueDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, date) => {
-                            setShowIssueDatePicker(Platform.OS === 'ios');
-                            if (date) handleInputChange('issueDate', date);
-                        }}
-                    />
-                )}
-                {showExpirationDatePicker && (
-                    <DateTimePicker
-                        value={formData.expirationDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, date) => {
-                            setShowExpirationDatePicker(Platform.OS === 'ios');
-                            if (date) handleInputChange('expirationDate', date);
-                        }}
-                    />
-                )}
+                <CustomDatePicker
+                    show={showIssueDatePicker}
+                    value={formData.issueDate}
+                    onChange={(event, date) => {
+                        if (date) handleInputChange('issueDate', date);
+                    }}
+                    onClose={() => setShowIssueDatePicker(false)}
+                />
+
+                <CustomDatePicker
+                    show={showExpirationDatePicker}
+                    value={formData.expirationDate}
+                    onChange={(event, date) => {
+                        if (date) handleInputChange('expirationDate', date);
+                    }}
+                    onClose={() => setShowExpirationDatePicker(false)}
+                />
             </View>
         );
     };

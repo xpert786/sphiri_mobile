@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     Alert,
     Image,
+    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -259,6 +260,7 @@ const BackupTab = () => {
                         disabled={processing}
                         trackColor={{ false: ColorConstants.GRAY3, true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
 
@@ -312,6 +314,7 @@ const BackupTab = () => {
                         disabled={processing}
                         trackColor={{ false: ColorConstants.GRAY3, true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
 
@@ -323,6 +326,7 @@ const BackupTab = () => {
                         disabled={processing}
                         trackColor={{ false: ColorConstants.GRAY3, true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
 
@@ -334,6 +338,7 @@ const BackupTab = () => {
                         disabled={processing}
                         trackColor={{ false: ColorConstants.GRAY3, true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
 
@@ -345,6 +350,7 @@ const BackupTab = () => {
                         disabled={processing}
                         trackColor={{ false: ColorConstants.GRAY3, true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
 

@@ -21,9 +21,9 @@ export const ApiConstants = {
     SETTINGS_NOTIFICATIONS: 'settings/notifications/',
     SETTINGS_BILLING: 'settings/billing/',
     SETTINGS_BACKUP: 'settings/backup/',
-    FAMILY_MEMBERSDHASBOARD: 'family-member/dashboard',
-    SHARE_CONTACTS: 'family-member/shared-contacts',
-    SHARE_DOCUMENTS: 'family-member/shared-documents',
+    FAMILY_MEMBERSDHASBOARD: 'family-member/dashboard/',
+    SHARE_CONTACTS: 'family-member/shared-contacts/',
+    SHARE_DOCUMENTS: 'family-member/shared-documents/',
     SHARED_DOCUMENTS_LIST: 'family-member/shared-documents/',
     SHARED_FOLDERS: 'family-member/shared-folders/',
     SHARED_REMINDERS: 'family-member/shared-reminders/',
@@ -38,6 +38,8 @@ export const ApiConstants = {
     VENDOR_CLIENT_DOCUMENTS: 'vendor-panel/clients/', // Used as VENDOR_CLIENT_DOCUMENTS + id + '/documents/'
     VENDOR_CLIENT_NOTES: 'vendor-panel/clients/', // Used as VENDOR_CLIENT_NOTES + id + '/notes/'
     VENDOR_CLIENT_REMINDERS: 'vendor-panel/clients/', // Used as VENDOR_CLIENT_REMINDERS + id + '/reminders/'
+    VENDOR_DOCUMENTS: 'vendor-panel/documents/',
+    VENDOR_NOTES: 'vendor-panel/notes/',
 
     //PERMISSIONS
     VENDOR_PERMISSIONS: 'vendor-panel/permissions/',
@@ -115,12 +117,12 @@ export const ApiConstants = {
     VENDOR_REMINDERS_API: 'vendor-panel/reminders/',
     TOOLS_REPORTS_GENERATE: 'tools/reports/generate/',
     CONTACT_TAGS: 'contact-tags/',
+    GLOBAL_TAG_GROUPS: 'contact-tags/groups/',
     MAINTENANCE_PLANNER: 'tools/workflows/maintenance-planner/',
     EMERGENCY_HOME_FILES: 'tools/workflows/emergency-home-file/',
     INSURANCE_INVENTORY: 'tools/workflows/insurance-inventory/',
     MOVING_PLANNER: 'tools/workflows/moving-planner/',
     ESTATE_PREPARATION: 'tools/workflows/estate-preparation/',
     GENERATE_PDF: 'tools/workflows/generate-pdf/',
-
 
 };

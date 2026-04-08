@@ -22,21 +22,43 @@ const fetchFormData = async (method: string, url: string, data: any) => {
   const token = await AsyncStorage.getItem(StringConstants.ACCESS_TOKEN);
   const fullUrl = url.startsWith('http') ? url : ApiConstants.BASE_URL + url;
 
-  const response = await fetch(fullUrl, {
-    method,
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    body: data,
-  });
+  console.log(`[API ${method}] ${fullUrl}`);
+  // console.log(`[API Token] ${token}`);
 
-  const respData = await response.json();
-  if (!response.ok) {
-    const error: any = new Error('API Error');
-    error.response = { status: response.status, data: respData };
-    throw error;
+  try {
+    const response = await fetch(fullUrl, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json', // Ensure we request JSON from the server
+      },
+      body: data,
+    });
+
+    const contentType = response.headers.get('content-type');
+    let respData;
+
+    if (contentType && contentType.includes('application/json')) {
+      respData = await response.json();
+    } else {
+      // If not JSON, capture as text to debug HTML errors (like 404/500 pages)
+      const textData = await response.text();
+      console.log(`[API Error Response Body]: ${textData}`);
+      respData = { message: 'Non-JSON response received', body: textData };
+    }
+
+    if (!response.ok) {
+      console.log(`[API Error Status]: ${response.status}`);
+      const error: any = new Error(`API Error ${response.status}`);
+      error.response = { status: response.status, data: respData };
+      throw error;
+    }
+
+    return { data: respData, status: response.status };
+  } catch (err) {
+    console.log(`[API Fetch Catch]:`, err);
+    throw err;
   }
-  return { data: respData, status: response.status };
 };
 
 export const apiGet = async (url: string, params?: any) => {

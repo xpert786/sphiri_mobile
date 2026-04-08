@@ -87,6 +87,7 @@ export default function DocumentDetails() {
     const [versions, setVersions] = useState<DocumentVersion[]>([]);
     const [legacyAccess, setLegacyAccess] = useState<LegacyAccessData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [previewData, setPreviewData] = useState<any>(null);
 
     const fileName = (params.title as string) || (documentDetails?.title) || 'Document Details';
@@ -201,6 +202,33 @@ export default function DocumentDetails() {
         }
     };
 
+    const handleDeleteDocument = async () => {
+        try {
+            setIsDeleting(true);
+            const response = await apiDelete(`${ApiConstants.HOMEOWNER_DOCUMENTS}${documentId}/`);
+            
+            // Check for 204 No Content or 200 Success
+            if (response.status === 204 || response.status === 200) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Document deleted successfully',
+                });
+                setShowDeleteModal(false);
+                router.push('/(root)/(drawer)/upload-document');
+            }
+        } catch (error) {
+            console.error('Error deleting document:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete document. Please try again.',
+            });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const renderOverview = () => (
         <View style={styles.card}>
             <Text style={styles.sectionTitle}>Note</Text>
@@ -221,9 +249,7 @@ export default function DocumentDetails() {
 
                 <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>File Type</Text>
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{documentDetails?.file_type || 'No File Type available'}</Text>
-                    </View>
+                    <Text style={styles.infoValue}>{documentDetails?.file_type || "No File Type available"}</Text>
                 </View>
 
                 <View style={styles.infoRow}>
@@ -420,12 +446,10 @@ export default function DocumentDetails() {
                             <Text style={styles.trusteeName}>{trustee.name}</Text>
                             <Text style={styles.trusteeEmail}>{trustee.email}</Text>
                             <View style={styles.tagsRow}>
-                                <View style={[styles.tag, { backgroundColor: ColorConstants.PRIMARY_BROWN }]}>
-                                    <Text style={[styles.tagText, { color: 'white' }]}>{trustee.role_display || 'Secondary Trustee'}</Text>
-                                </View>
-                                <View style={[styles.tag, { backgroundColor: '#F3F4F6' }]}>
-                                    <Text style={styles.tagText}>{trustee.access_trigger_display || 'Trigger'}</Text>
-                                </View>
+                                {trustee?.access_trigger_display &&
+                                    <View style={[styles.tag, { backgroundColor: '#F3F4F6' }]}>
+                                        <Text style={styles.tagText}>{trustee?.access_trigger_display || 'Trigger'}</Text>
+                                    </View>}
                             </View>
                             <View style={styles.actionRow}>
                                 <TouchableOpacity
@@ -621,12 +645,14 @@ export default function DocumentDetails() {
 
             <DeleteConfirmationModal
                 visible={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onDelete={() => {
-                    console.log('Deleting...');
+                onClose={() => {
+                    if (isDeleting) return;
                     setShowDeleteModal(false);
+                    setActiveAction('');
                 }}
+                onDelete={handleDeleteDocument}
                 title={deleteConfig.title}
+                isLoading={isDeleting}
             />
 
             <RemoveTrusteeModal

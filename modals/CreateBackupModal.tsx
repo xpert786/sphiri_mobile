@@ -137,7 +137,7 @@ const CreateBackupModal: React.FC<CreateBackupModalProps> = ({
                                     >
                                         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
                                             {isSelected && (
-                                                <Image source={Icons.ic_checkbox_selected} style={styles.tickIcon} />
+                                                <Image source={Icons.ic_checkbox_tick} style={styles.tickIcon} />
                                             )}
                                         </View>
                                         <View style={styles.itemInfo}>

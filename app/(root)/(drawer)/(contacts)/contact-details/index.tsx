@@ -1,14 +1,18 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
+import ApiErrorModal from '@/components/ApiErrorModal';
 import CustomTextInput from '@/components/CustomTextInput';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
+import { capitalizeFirstLetter } from '@/constants/Helper';
 import { StringConstants } from '@/constants/StringConstants';
 import AddContactModal from '@/modals/AddContactModal';
 import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
 import LogEngagementModal from '@/modals/LogEngagementModal';
+import UploadAttachmentModal from '@/modals/UploadAttachmentModal';
+import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback } from 'react';
 import { Dimensions, FlatList, Image, Linking, Pressable, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -45,6 +49,9 @@ export default function ContactDetails() {
     const [notesList, setNotesList] = React.useState<any[]>([]);
     const [loadingNotes, setLoadingNotes] = React.useState(false);
     const [savingNote, setSavingNote] = React.useState(false);
+    const [apiErrorModalVisible, setApiErrorModalVisible] = React.useState(false);
+    const [apiErrorData, setApiErrorData] = React.useState<any>(null);
+    const [uploadAttachmentModalVisible, setUploadAttachmentModalVisible] = React.useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -138,6 +145,7 @@ export default function ContactDetails() {
             formData.append('emergency_contact', updatedData.emergency_contact || '');
             formData.append('website', updatedData.website || '');
             formData.append('initial_note', updatedData.notes || '');
+            formData.append('notes', updatedData.notes || '');
             formData.append('rating', updatedData.rating || '');
             formData.append('category', updatedData.category_id || '');
 
@@ -151,14 +159,37 @@ export default function ContactDetails() {
                 formData.append('visibility', updatedData.visibility_id.toString());
             }
 
-            if (updatedData.tags && Array.isArray(updatedData.tags)) {
-                updatedData.tags.forEach((tag: any) => {
-                    formData.append('tags', tag.id.toString());
-                });
+            // Category Tags and Global Tags based on type
+            if (type === 'personal_contact') {
+                if (updatedData.tag_ids && Array.isArray(updatedData.tag_ids)) {
+                    updatedData.tag_ids.forEach((id: any) => {
+                        formData.append('tags', id.toString());
+                    });
+                }
+                if (updatedData.global_tag_ids && Array.isArray(updatedData.global_tag_ids)) {
+                    updatedData.global_tag_ids.forEach((id: any) => {
+                        formData.append('global_tags', id.toString());
+                    });
+                }
+            } else {
+                // Vendor case
+                if (updatedData.tag_ids && Array.isArray(updatedData.tag_ids)) {
+                    updatedData.tag_ids.forEach((id: any) => {
+                        formData.append('tag_ids', id.toString());
+                    });
+                }
+                if (updatedData.global_tag_ids && Array.isArray(updatedData.global_tag_ids)) {
+                    updatedData.global_tag_ids.forEach((id: any) => {
+                        formData.append('global_tag_ids', id.toString());
+                    });
+                }
             }
 
+            // Property IDs — handle as individual parts (removed [] suffix for compatibility)
             if (updatedData.property_ids && Array.isArray(updatedData.property_ids)) {
-                formData.append('property_ids', JSON.stringify(updatedData.property_ids));
+                updatedData.property_ids.forEach((id: any) => {
+                    formData.append('property_ids', id.toString());
+                });
             }
 
             if (updatedData.logo_url && updatedData.logo_url.uri) {
@@ -193,11 +224,17 @@ export default function ContactDetails() {
             }
         } catch (error: any) {
             console.error('Error updating contact:', error);
-            Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: error?.response?.data?.message || error?.message || 'An unexpected error occurred',
-            });
+            if (error?.response?.data) {
+                console.error('API Error Details (Edit):', JSON.stringify(error.response.data, null, 2));
+                setApiErrorData(error.response.data);
+                setApiErrorModalVisible(true);
+            } else {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: error?.message || 'An unexpected error occurred',
+                });
+            }
         }
     };
 
@@ -393,13 +430,63 @@ export default function ContactDetails() {
             }
         } catch (error: any) {
             console.error('Error logging engagement:', error);
+            if (error?.response?.data) {
+                console.error('API Error Details (Log Engagement):', JSON.stringify(error.response.data, null, 2));
+                setApiErrorData(error.response.data);
+                setApiErrorModalVisible(true);
+            } else {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: error?.message || 'An unexpected error occurred',
+                });
+            }
+        }
+    };
+
+    const handleUploadAttachment = async (formData: any) => {
+        try {
+            if (!selectedContact) return;
+            const url = `${ApiConstants.VENDORS_LIST_CONTACTS}${selectedContact.id}${ApiConstants.VENDORS_ATTACHMENTS}`;
+
+            const data = new FormData();
+            data.append('file', {
+                uri: formData.file.uri,
+                name: formData.file.name,
+                type: formData.file.mimeType || 'application/octet-stream',
+            } as any);
+
+            if (formData.property_id) {
+                data.append('property_id', formData.property_id.toString());
+            }
+            if (formData.is_medical) {
+                data.append('is_medical', 'true');
+            }
+
+            const res = await apiPost(url, data, { isFormData: true });
+
+            if (res.status === 200 || res.status === 201) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Attachment uploaded successfully',
+                });
+                setUploadAttachmentModalVisible(false);
+                fetchAttachments();
+            } else {
+                throw new Error(res.data?.message || 'Upload failed');
+            }
+        } catch (error: any) {
+            console.error('Error uploading attachment:', error);
             Toast.show({
                 type: 'error',
                 text1: 'Error',
-                text2: error?.response?.data?.message || error?.message || 'An unexpected error occurred',
+                text2: error.message || 'Failed to upload attachment',
             });
+            setUploadAttachmentModalVisible(false);
         }
     };
+
 
     const renderContent = () => {
         switch (activeTab) {
@@ -480,7 +567,7 @@ export default function ContactDetails() {
                         </View>}
 
                         <View style={styles.profileInfo}>
-                            <Image source={Icons.ic_eye} style={styles.profileIcon} />
+                            <MaterialIcons name="visibility" size={18} color={ColorConstants.DARK_CYAN} style={styles.profileIcon} />
                             <View style={styles.infoTextContainer}>
                                 <Text style={styles.profileLabel}>VISIBILITY</Text>
                                 <Text style={styles.valueText}>{(selectedContact as any)?.visibility_name || 'Shared'}</Text>
@@ -488,10 +575,10 @@ export default function ContactDetails() {
                         </View>
 
                         <View style={styles.profileInfo}>
-                            <Image source={Icons.ic_doc} style={styles.profileIcon} />
+                            <Image source={Icons.ic_doc2} style={styles.profileIcon} />
                             <View style={styles.infoTextContainer}>
                                 <Text style={styles.profileLabel}>NOTES</Text>
-                                <Text style={styles.valueText}>{(selectedContact as any)?.initial_note || 'No notes'}</Text>
+                                <Text style={styles.valueText}>{(selectedContact as any)?.notes || 'No notes'}</Text>
                             </View>
                         </View>
 
@@ -499,19 +586,38 @@ export default function ContactDetails() {
 
                         <Text style={styles.titleText}>{StringConstants.TAG}</Text>
                         <View style={styles.tagsContainer}>
-                            {selectedContact?.tags.map((tag, index) => (
-                                <View key={index} style={[
-                                    styles.tagBadge,
-                                    tag.name.toLowerCase().includes('emergency') && { backgroundColor: ColorConstants.RED },
-                                    tag.name.toLowerCase().includes('shared') && { backgroundColor: ColorConstants.PRIMARY_BROWN }
-                                ]}>
-                                    <Text style={[
-                                        styles.tagText,
-                                        (tag.name.toLowerCase().includes('emergency') || tag.name.toLowerCase().includes('shared')) && { color: ColorConstants.WHITE }
-                                    ]}>{tag.name}</Text>
-                                </View>
-                            ))}
+                            {selectedContact?.tags && selectedContact?.tags.length > 0 ?
+                                selectedContact?.tags.map((tag, index) => (
+                                    <View key={index} style={[
+                                        styles.tagBadge,
+                                        tag.name.toLowerCase().includes('emergency') && { backgroundColor: ColorConstants.RED },
+                                        tag.name.toLowerCase().includes('shared') && { backgroundColor: ColorConstants.PRIMARY_BROWN }
+                                    ]}>
+                                        <Text style={[
+                                            styles.tagText,
+                                            (tag.name.toLowerCase().includes('emergency') || tag.name.toLowerCase().includes('shared')) && { color: ColorConstants.WHITE }
+                                        ]}>{tag.name}</Text>
+                                    </View>
+                                )) :
+                                <Text style={styles.notags}>No tags</Text>
+
+                            }
                         </View>
+
+                        {selectedContact?.global_tags && selectedContact.global_tags.length > 0 ? (
+                            <>
+                                <Text style={[styles.titleText, { marginTop: 16 }]}>Global Tags</Text>
+                                <View style={styles.tagsContainer}>
+                                    {selectedContact.global_tags.map((tag, index) => (
+                                        <View key={index} style={[styles.tagBadge, { backgroundColor: '#E0F2FE', borderColor: '#BAE6FD', borderWidth: 0.5 }]}>
+                                            <Text style={[styles.tagText, { color: '#0369A1' }]}>{tag.name || tag.label}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </>
+                        ) : (
+                            <Text style={styles.notags}>No Global tags</Text>
+                        )}
 
                         <View style={[styles.divider, { marginTop: 16 }]} />
 
@@ -520,7 +626,7 @@ export default function ContactDetails() {
                             {(selectedContact as any)?.properties && (selectedContact as any).properties.length > 0 ? (
                                 (selectedContact as any).properties.map((prop: any, index: number) => (
                                     <View key={index} style={styles.propertyCard}>
-                                        <Text style={styles.propertyName}>{prop.name}</Text>
+                                        <Text style={styles.propertyName}>{capitalizeFirstLetter(prop.name)}</Text>
                                         <Text style={styles.propertyAddress}>{prop.full_address}</Text>
                                     </View>
                                 ))
@@ -528,6 +634,34 @@ export default function ContactDetails() {
                                 <Text style={styles.valueText}>No associated properties.</Text>
                             )}
                         </View>
+
+                        {(selectedContact as any)?.document_url && (
+                            <>
+                                <View style={[styles.divider, { marginTop: 16 }]} />
+                                <Text style={[styles.titleText, { marginTop: 16 }]}>Document</Text>
+                                <TouchableOpacity
+                                    style={[styles.profileInfo, { marginTop: 8 }]}
+                                    onPress={() => {
+                                        const docUrl = (selectedContact as any).document_url;
+                                        const fullUrl = docUrl.startsWith('http')
+                                            ? docUrl
+                                            : `${ApiConstants.MEDIA_URL}${docUrl}`;
+                                        Linking.openURL(fullUrl).catch(err => {
+                                            console.error('Failed to open PDF:', err);
+                                            Toast.show({ type: 'error', text1: 'Error', text2: 'Could not open document' });
+                                        });
+                                    }}
+                                >
+                                    <Image source={Icons.ic_doc2} style={styles.profileIcon} />
+                                    <View style={styles.infoTextContainer}>
+                                        <Text style={styles.profileLabel}>FILE NAME</Text>
+                                        <Text style={[styles.valueText, { color: ColorConstants.PRIMARY_BROWN, textDecorationLine: 'underline' }]}>
+                                            {(selectedContact as any).document_url.split('/').pop()}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        )}
                         <View style={{ height: 20 }} />
                     </View >
                 );
@@ -589,7 +723,16 @@ export default function ContactDetails() {
             case 'Attachments':
                 return (
                     <View style={styles.tabContainer}>
-                        <Text style={styles.titleText}>{StringConstants.ATTACHMENTS}</Text>
+                        <View style={styles.tabHeader}>
+                            <Text style={styles.titleText}>{StringConstants.ATTACHMENTS}</Text>
+                            <TouchableOpacity
+                                style={styles.addAttachmentButton}
+                                onPress={() => setUploadAttachmentModalVisible(true)}
+                            >
+                                <MaterialIcons name="add" size={18} color={ColorConstants.WHITE} />
+                                <Text style={styles.addAttachmentText}>Add Attachment</Text>
+                            </TouchableOpacity>
+                        </View>
                         <FlatList
                             data={attachments}
                             keyExtractor={(item) => item.id.toString()}
@@ -614,9 +757,11 @@ export default function ContactDetails() {
                             )}
                             scrollEnabled={false}
                             ListEmptyComponent={() => (
-                                <Text style={styles.emptyText}>
-                                    {loadingAttachments ? 'Loading attachments...' : 'No attachments found.'}
-                                </Text>
+                                <View style={styles.emptyStateContainer}>
+                                    <MaterialIcons name="attachment" size={48} color={ColorConstants.GRAY2} style={styles.emptyStateIcon} />
+                                    <Text style={styles.emptyStateTitle}>No attachments found.</Text>
+                                    <Text style={styles.emptyStateSubtext}>Click "Add Attachment" to upload your first file.</Text>
+                                </View>
                             )}
                         />
                     </View>
@@ -703,6 +848,18 @@ export default function ContactDetails() {
                 title={`Are you sure you want to delete ${selectedContact?.name}?`}
             />
 
+            <ApiErrorModal
+                visible={apiErrorModalVisible}
+                errorData={apiErrorData}
+                onClose={() => setApiErrorModalVisible(false)}
+            />
+
+            <UploadAttachmentModal
+                visible={uploadAttachmentModalVisible}
+                onClose={() => setUploadAttachmentModalVisible(false)}
+                onUpload={handleUploadAttachment}
+            />
+
             <ScrollView showsVerticalScrollIndicator={false}>
                 <Header
                     title={StringConstants.VENDORS_AND_CONTACTS}
@@ -776,34 +933,175 @@ export default function ContactDetails() {
                     </View>
                 </View>
 
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.tabBarContainer}
-                    contentContainerStyle={styles.tabBar}
-                >
-                    {tabs.map(tab => (
-                        <Pressable
-                            key={tab.key}
-                            style={[
-                                styles.tabsView,
-                                activeTab === tab.key && styles.activeTabView,
-                            ]}
-                            onPress={() => handleTabPress(tab.key as 'Overview' | 'Engagements' | 'Attachments' | 'Notes')}
-                        >
-                            <Text
+                {type === 'vendor' &&
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.tabBarContainer}
+                        contentContainerStyle={styles.tabBar}
+                    >
+                        {tabs.map(tab => (
+                            <Pressable
+                                key={tab.key}
                                 style={[
-                                    styles.tabLabel,
-                                    activeTab === tab.key && styles.activeTabLabel,
+                                    styles.tabsView,
+                                    activeTab === tab.key && styles.activeTabView,
                                 ]}
+                                onPress={() => handleTabPress(tab.key as 'Overview' | 'Engagements' | 'Attachments' | 'Notes')}
                             >
-                                {tab.label}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </ScrollView>
+                                <Text
+                                    style={[
+                                        styles.tabLabel,
+                                        activeTab === tab.key && styles.activeTabLabel,
+                                    ]}
+                                >
+                                    {tab.label}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </ScrollView>}
 
-                {renderContent()}
+                {type === 'personal_contact' ?
+                    <View style={styles.tabContainer}>
+                        <Text style={styles.titleText}>{StringConstants.PROFILE}</Text>
+
+                        <View style={styles.profileInfo}>
+                            <Image source={Icons.ic_phonecall} style={styles.profileIcon} />
+                            <View style={styles.infoTextContainer}>
+                                <Text style={styles.profileLabel}>PHONE NUMBER</Text>
+                                <Text style={styles.valueText}>{selectedContact?.phone_number || 'No phone'}</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.profileInfo}
+                            onPress={() => {
+                                if (selectedContact?.email) {
+                                    Linking.openURL(`mailto:${selectedContact.email}`).catch(err => {
+                                        console.error('Failed to open email:', err);
+                                        Toast.show({ type: 'error', text1: 'Error', text2: 'Could not open email app' });
+                                    });
+                                }
+                            }}
+                        >
+                            <Image source={Icons.ic_gmail} style={styles.profileIcon} />
+                            <View style={styles.infoTextContainer}>
+                                <Text style={styles.profileLabel}>EMAIL ADDRESS</Text>
+                                <Text style={styles.valueText}>{selectedContact?.email || 'No email'}</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <View style={styles.profileInfo}>
+                            <Image source={Icons.ic_location2} style={styles.profileIcon} />
+                            <View style={styles.infoTextContainer}>
+                                <Text style={styles.profileLabel}>ADDRESS</Text>
+                                <Text style={styles.valueText}>
+                                    {selectedContact?.address || (selectedContact as any)?.address_line1 || 'No address provided'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.profileInfo}>
+                            <MaterialIcons name="visibility" size={18} color={ColorConstants.DARK_CYAN} style={styles.profileIcon} />
+                            <View style={styles.infoTextContainer}>
+                                <Text style={styles.profileLabel}>VISIBILITY</Text>
+                                <Text style={styles.valueText}>{(selectedContact as any)?.visibility_name || 'Shared'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.profileInfo}>
+                            <Image source={Icons.ic_doc2} style={styles.profileIcon} />
+                            <View style={styles.infoTextContainer}>
+                                <Text style={styles.profileLabel}>NOTES</Text>
+                                <Text style={styles.valueText}>{(selectedContact as any)?.notes || 'No notes'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        <Text style={styles.titleText}>{StringConstants.TAG}</Text>
+                        <View style={styles.tagsContainer}>
+                            {selectedContact?.tags && selectedContact?.tags.length > 0 ?
+                                selectedContact?.tags.map((tag, index) => (
+                                    <View key={index} style={[
+                                        styles.tagBadge,
+                                        tag.name.toLowerCase().includes('emergency') && { backgroundColor: ColorConstants.RED },
+                                        tag.name.toLowerCase().includes('shared') && { backgroundColor: ColorConstants.PRIMARY_BROWN }
+                                    ]}>
+                                        <Text style={[
+                                            styles.tagText,
+                                            (tag.name.toLowerCase().includes('emergency') || tag.name.toLowerCase().includes('shared')) && { color: ColorConstants.WHITE }
+                                        ]}>{tag.name}</Text>
+                                    </View>
+                                )) :
+                                <Text style={styles.notags}>No tags</Text>
+
+                            }
+                        </View>
+
+                        {selectedContact?.global_tags && selectedContact.global_tags.length > 0 ? (
+                            <>
+                                <Text style={[styles.titleText, { marginTop: 16 }]}>Global Tags</Text>
+                                <View style={styles.tagsContainer}>
+                                    {selectedContact.global_tags.map((tag, index) => (
+                                        <View key={index} style={[styles.tagBadge, { backgroundColor: '#E0F2FE', borderColor: '#BAE6FD', borderWidth: 0.5 }]}>
+                                            <Text style={[styles.tagText, { color: '#0369A1' }]}>{tag.name || tag.label}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </>
+                        ) : (
+                            <Text style={styles.notags}>No Global tags</Text>
+                        )}
+
+                        <View style={[styles.divider, { marginTop: 16 }]} />
+
+                        <Text style={[styles.titleText, { marginTop: 4 }]}>Associated Properties</Text>
+                        <View style={styles.propertiesContainer}>
+                            {(selectedContact as any)?.properties && (selectedContact as any).properties.length > 0 ? (
+                                (selectedContact as any).properties.map((prop: any, index: number) => (
+                                    <View key={index} style={styles.propertyCard}>
+                                        <Text style={styles.propertyName}>{capitalizeFirstLetter(prop.name)}</Text>
+                                        <Text style={styles.propertyAddress}>{prop.full_address}</Text>
+                                    </View>
+                                ))
+                            ) : (
+                                <Text style={styles.valueText}>No associated properties.</Text>
+                            )}
+                        </View>
+
+                        {(selectedContact as any)?.document_url && (
+                            <>
+                                <View style={[styles.divider, { marginTop: 16 }]} />
+                                <Text style={[styles.titleText, { marginTop: 16 }]}>Document</Text>
+                                <TouchableOpacity
+                                    style={[styles.profileInfo, { marginTop: 8 }]}
+                                    onPress={() => {
+                                        const docUrl = (selectedContact as any).document_url;
+                                        const fullUrl = docUrl.startsWith('http')
+                                            ? docUrl
+                                            : `${ApiConstants.MEDIA_URL}${docUrl}`;
+                                        Linking.openURL(fullUrl).catch(err => {
+                                            console.error('Failed to open PDF:', err);
+                                            Toast.show({ type: 'error', text1: 'Error', text2: 'Could not open document' });
+                                        });
+                                    }}
+                                >
+                                    <Image source={Icons.ic_doc2} style={styles.profileIcon} />
+                                    <View style={styles.infoTextContainer}>
+                                        <Text style={styles.profileLabel}>FILE NAME</Text>
+                                        <Text style={[styles.valueText, { color: ColorConstants.PRIMARY_BROWN, textDecorationLine: 'underline' }]}>
+                                            {(selectedContact as any).document_url.split('/').pop()}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                        <View style={{ height: 20 }} />
+                    </View > :
+                    renderContent()
+                }
+
 
             </ScrollView>
         </SafeAreaView>
@@ -1088,6 +1386,11 @@ const styles = StyleSheet.create({
         fontSize: 10,
         color: ColorConstants.BLACK2,
     },
+    notags: {
+        fontFamily: Fonts.ManropeLight,
+        fontSize: 12,
+        color: ColorConstants.GRAY,
+    },
     customFieldText: {
         fontFamily: Fonts.mulishRegular,
         fontSize: 12,
@@ -1170,6 +1473,7 @@ const styles = StyleSheet.create({
     attachmentRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginBottom: 7
     },
     bullet: {
         fontSize: 20,
@@ -1196,5 +1500,47 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.mulishRegular,
         fontSize: 12,
         color: ColorConstants.DARK_CYAN,
-    }
-})
+    },
+    tabHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    addAttachmentButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 6,
+        gap: 4,
+    },
+    addAttachmentText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 13,
+        color: ColorConstants.WHITE,
+    },
+    emptyStateContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+    },
+    emptyStateIcon: {
+        transform: [{ rotate: '45deg' }],
+        marginBottom: 16,
+        opacity: 0.5,
+    },
+    emptyStateTitle: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 16,
+        color: ColorConstants.BLACK2,
+        marginBottom: 8,
+    },
+    emptyStateSubtext: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 14,
+        color: ColorConstants.GRAY,
+        textAlign: 'center',
+    },
+});

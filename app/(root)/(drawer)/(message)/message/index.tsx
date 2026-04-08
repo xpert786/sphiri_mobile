@@ -218,6 +218,8 @@ export default function Message() {
     const renderItem = ({ item }: any) => {
         const isSelected = item.id === selectedId;
         const initials = item.client_name ? item.client_name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : '?';
+        console.log("item in messages vendor chatlist:", item);
+
 
         return (
             <Pressable
@@ -228,32 +230,35 @@ export default function Message() {
                 onPress={() => {
                     const convId = item.id.toString();
                     setSelectedId(convId);
-
                     router.push({
                         pathname: './message-inner',
                         params: { id: convId }
                     });
                 }}
             >
-                <View style={styles.cardHeader}>
-                    <View style={styles.userInfo}>
-                        <View style={styles.avatarContainer}>
-                            {item?.client_avatar ? (
-                                <Image source={{ uri: item.client_avatar }} style={styles.avatarImage} />
-                            ) : (
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={styles.initials}>{initials}</Text>
-                                </View>
-                            )}
-                        </View>
-                        <Text style={styles.nameText} numberOfLines={1} ellipsizeMode="tail">{item.client_name}</Text>
+                <View style={styles.cardRow}>
+                    <View style={styles.avatarCol}>
+                        {item?.client_avatar ? (
+                            <Image source={{ uri: item.client_avatar }} style={styles.avatarImage} />
+                        ) : (
+                            <View style={styles.avatarPlaceholder}>
+                                <Text style={styles.initials}>{initials}</Text>
+                            </View>
+                        )}
                     </View>
-                    <Text style={styles.timeText}>{formatDateTime(item.last_message_at)}</Text>
-                </View>
 
-                <Text style={styles.messageText} numberOfLines={2} ellipsizeMode="tail">
-                    {item.last_message || item.subject}
-                </Text>
+                    <View style={styles.textCol}>
+                        <View style={styles.headerRow}>
+                            <Text style={styles.nameText} numberOfLines={1} ellipsizeMode="tail">
+                                {item.client_name}
+                            </Text>
+                            <Text style={styles.timeText}>{formatDateTime(item.last_message_at)}</Text>
+                        </View>
+                        <Text style={styles.messageText} numberOfLines={2} ellipsizeMode="tail">
+                            {String(item.last_message || item.subject || (item.last_message_at ? "-" : "No messages yet")).replace(/[\n\r]+/g, ' ').trim()}
+                        </Text>
+                    </View>
+                </View>
             </Pressable>
         );
     };
@@ -456,6 +461,7 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 12,
         borderWidth: 1,
+        backgroundColor: ColorConstants.WHITE,
         // Shadow for iOS
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -465,34 +471,24 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     cardSelected: {
-        backgroundColor: '#FEF8F4', // Light peach background (approximation from design)
-        borderColor: ColorConstants.ORANGE, // Orange border
+        backgroundColor: '#FEF8F4',
+        borderColor: ColorConstants.ORANGE,
     },
     cardUnselected: {
         backgroundColor: ColorConstants.WHITE,
         borderColor: ColorConstants.GRAY3,
     },
-    cardHeader: {
+    cardRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'flex-start',
-        // marginBottom: 8,
     },
-    userInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    avatarContainer: {
-        marginRight: 10,
+    avatarCol: {
+        marginRight: 12,
     },
     avatarImage: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-
     },
     avatarPlaceholder: {
         width: 40,
@@ -507,25 +503,31 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: ColorConstants.PRIMARY_BROWN,
     },
+    textCol: {
+        flex: 1,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 2,
+    },
     nameText: {
         fontFamily: Fonts.ManropeMedium,
-        fontSize: 14,
+        fontSize: 15,
         color: ColorConstants.DARK_CYAN,
         flex: 1,
-        marginTop: -20
+        marginRight: 8,
     },
     timeText: {
         fontFamily: Fonts.mulishRegular,
         fontSize: 10,
         color: ColorConstants.GRAY,
-        marginLeft: 8,
     },
     messageText: {
         fontFamily: Fonts.mulishRegular,
-        fontSize: 12,
+        fontSize: 13,
         color: ColorConstants.GRAY5,
-        // lineHeight: 18,
-        paddingLeft: 50,
-        marginTop: -15
+        lineHeight: 18,
     },
 });

@@ -1,4 +1,4 @@
-import { apiGet, apiPut } from '@/api/apiMethods';
+import { apiGet, apiPost, apiPut } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import CustomTextInput from '@/components/CustomTextInput';
@@ -7,15 +7,18 @@ import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { useProfile } from '@/context/ProfileContext';
 import ChangePasswordModal from '@/modals/ChangePasswordModal';
+import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     BackHandler,
     Dimensions,
     Image,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -25,6 +28,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 interface VendorProfile {
     id: number;
@@ -47,6 +51,7 @@ export default function VendorSettings() {
     const { from } = useLocalSearchParams();
     const [activeTab, setActiveTab] = useState<'Profile' | 'Security' | 'Notifications'>('Profile');
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
     const [loading, setLoading] = useState(false);
@@ -66,30 +71,40 @@ export default function VendorSettings() {
     const [smsAlerts, setSmsAlerts] = useState(false);
     const [pushNotifications, setPushNotifications] = useState(false);
     const [weeklySummary, setWeeklySummary] = useState(false);
+    const [isProfileForbidden, setIsProfileForbidden] = useState(false);
 
     const { refreshProfile } = useProfile();
 
 
-    useFocusEffect(
-        useCallback(() => {
-            const onBackPress = () => {
-                if (from === 'grow-business') {
-                    router.navigate('/(root)/(drawer)/grow-business');
-                } else {
-                    router.navigate('/(root)/(drawer)/Home');
-                }
-                return true;
-            };
+    const fetchVendorProfile = async () => {
+        console.log("Hitting VENDOR_PROFILE API...");
+        setLoading(true);
+        setIsProfileForbidden(false);
+        try {
+            const response = await apiGet(ApiConstants.VENDOR_PROFILE);
+            console.log("response in fetchVendorProfile:", response.data);
 
-            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            if (response.data) {
+                const data: VendorProfile = response.data;
+                setProfileData(data);
+                setCompanyName(data.business_name);
+                setEmail(data.email);
+                setPhone(data.phone_number);
+                setAddress(data.business_address);
+                setDescription(data.business_description);
+                setLocalImagePath(null); // Reset local image on fetch
+                setIsEditing(false); // Reset edit mode on refresh
+            }
+        } catch (error: any) {
+            if (error?.response?.status === 403) {
+                setIsProfileForbidden(true);
+            }
+            console.error("Error fetching vendor profile:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            return () => subscription.remove();
-        }, [from])
-    );
-
-    useEffect(() => {
-        fetchVendorProfile();
-    }, []);
     const handleProfileUpdate = async () => {
         if (!profileData) return;
 
@@ -123,29 +138,46 @@ export default function VendorSettings() {
         }
     };
 
-    const fetchVendorProfile = async () => {
-        setLoading(true);
+    const handleDeleteAccount = async () => {
         try {
-            const response = await apiGet(ApiConstants.VENDOR_PROFILE);
-            console.log("response in. fetchVendorProfile:", response.data);
-
-            if (response.data) {
-                const data: VendorProfile = response.data;
-                setProfileData(data);
-                setCompanyName(data.business_name);
-                setEmail(data.email);
-                setPhone(data.phone_number);
-                setAddress(data.business_address);
-                setDescription(data.business_description);
-                setLocalImagePath(null); // Reset local image on fetch
-                setIsEditing(false); // Reset edit mode on refresh
+            const response = await apiPost(ApiConstants.DELETE_ACCOUNT, { role: 'vendor' });
+            if (response.status === 200 || response.status === 204) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Account Deleted',
+                    text2: 'Your account has been deleted successfully.',
+                });
+                setShowDeleteModal(false);
+                // Navigate to Splash screen
+                router.replace('/(root)/Splash');
             }
         } catch (error) {
-            console.error("Error fetching vendor profile:", error);
-        } finally {
-            setLoading(false);
+            console.error('Error deleting account:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete account. Please try again.',
+            });
         }
     };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchVendorProfile();
+            const onBackPress = () => {
+                if (from === 'grow-business') {
+                    router.navigate('/(root)/(drawer)/grow-business');
+                } else {
+                    router.navigate('/(root)/(drawer)/Home');
+                }
+                return true;
+            };
+
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+            return () => subscription.remove();
+        }, [from])
+    );
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -258,15 +290,16 @@ export default function VendorSettings() {
                             </Text>
                         </View>
                     )}
-                    <TouchableOpacity style={styles.editAvatarBtn} onPress={pickImage}>
-                        <Image source={Icons.ic_edit_pen} />
-                    </TouchableOpacity>
+                    {!isProfileForbidden &&
+                        <TouchableOpacity style={styles.editAvatarBtn} onPress={pickImage}>
+                            <Image source={Icons.ic_edit_pen} />
+                        </TouchableOpacity>}
                 </View>
                 <View style={styles.profileInfo}>
                     <Text style={styles.profileName}>{profileData?.user_name || 'Vendor'}</Text>
                     <Text style={styles.profileRole}>{profileData?.user_role || 'Role'}</Text>
                 </View>
-                {!isEditing && (
+                {!isEditing && !isProfileForbidden && (
                     <TouchableOpacity style={styles.editBtn} onPress={() => setIsEditing(true)}>
                         <Image source={Icons.ic_edit} style={styles.editBtnSmallIcon} />
                         <Text style={styles.editBtnText}>Edit</Text>
@@ -274,53 +307,68 @@ export default function VendorSettings() {
                 )}
             </View>
 
-            <View style={styles.form}>
-                <CustomTextInput
-                    label="Company Name"
-                    value={companyName}
-                    onChangeText={setCompanyName}
-                    placeholder="Enter company name"
-                    editable={isEditing}
-                />
+            {isProfileForbidden ? (
+                <View style={styles.reviewContainer}>
+                    <MaterialCommunityIcons
+                        name="information-outline"
+                        size={40}
+                        color={ColorConstants.PRIMARY_BROWN}
+                        style={{ marginBottom: 15 }}
+                    />
+                    <Text style={styles.reviewTitle}>Profile Under Review</Text>
+                    <Text style={styles.reviewMessage}>
+                        Your profile is currently under review. You cannot view or make changes until it is approved by the admin. Please wait for admin approval.
+                    </Text>
+                </View>
+            ) : (
+                <View style={styles.form}>
+                    <CustomTextInput
+                        label="Company Name"
+                        value={companyName}
+                        onChangeText={setCompanyName}
+                        placeholder="Enter company name"
+                        editable={isEditing}
+                    />
 
-                <CustomTextInput
-                    label="Business Email"
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter business email"
-                    keyboardType="email-address"
-                    leftIcon={Icons.ic_mail}
-                    editable={isEditing}
-                />
+                    <CustomTextInput
+                        label="Business Email"
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="Enter business email"
+                        keyboardType="email-address"
+                        leftIcon={Icons.ic_mail}
+                        editable={isEditing}
+                    />
 
-                <CustomTextInput
-                    label="Phone Number"
-                    value={phone}
-                    onChangeText={setPhone}
-                    placeholder="Enter phone number"
-                    keyboardType="phone-pad"
-                    maxLength={13}
-                    editable={isEditing}
-                />
+                    <CustomTextInput
+                        label="Phone Number"
+                        value={phone}
+                        onChangeText={setPhone}
+                        placeholder="Enter phone number"
+                        keyboardType="phone-pad"
+                        maxLength={13}
+                        editable={isEditing}
+                    />
 
-                <CustomTextInput
-                    label="Address"
-                    value={address}
-                    onChangeText={setAddress}
-                    placeholder="Enter address"
-                    editable={isEditing}
-                />
+                    <CustomTextInput
+                        label="Address"
+                        value={address}
+                        onChangeText={setAddress}
+                        placeholder="Enter address"
+                        editable={isEditing}
+                    />
 
-                <CustomTextInput
-                    label="Business Description"
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="Enter business description"
-                    multiline
-                    multiStyles={styles.textArea}
-                    editable={isEditing}
-                />
-            </View>
+                    <CustomTextInput
+                        label="Business Description"
+                        value={description}
+                        onChangeText={setDescription}
+                        placeholder="Enter business description"
+                        multiline
+                        multiStyles={styles.textArea}
+                        editable={isEditing}
+                    />
+                </View>
+            )}
 
             {isEditing && (
                 <View style={styles.footer}>
@@ -360,15 +408,17 @@ export default function VendorSettings() {
         <View style={styles.card}>
             <Text style={styles.tabTitle}>Security Settings</Text>
             <Text style={styles.tabSubtitle}>Manage your account security</Text>
-
-            {/* <TouchableOpacity style={styles.securityOption}>
-                <Image source={Icons.ic_info} style={styles.securityIcon} />
-                <Text style={styles.securityText}>Enable Two-Factor Authentication</Text>
-            </TouchableOpacity> */}
-
             <TouchableOpacity style={styles.securityOption} onPress={() => setShowPasswordModal(true)}>
                 <Image source={Icons.ic_permissions} style={styles.securityIcon} />
                 <Text style={styles.securityText}>Change Password</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[styles.securityOption, { borderColor: ColorConstants.RED50, backgroundColor: '#FEF2F2' }]}
+                onPress={() => setShowDeleteModal(true)}
+            >
+                <Image source={Icons.ic_bin} style={[styles.securityIcon, { tintColor: ColorConstants.RED }]} />
+                <Text style={[styles.securityText, { color: ColorConstants.RED }]}>Delete Account</Text>
             </TouchableOpacity>
         </View>
     );
@@ -385,6 +435,7 @@ export default function VendorSettings() {
                     thumbColor="#FFFFFF"
                     value={emailNotifications}
                     onValueChange={setEmailNotifications}
+                    style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                 />
             </View>
 
@@ -395,6 +446,7 @@ export default function VendorSettings() {
                     thumbColor="#FFFFFF"
                     value={smsAlerts}
                     onValueChange={setSmsAlerts}
+                    style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                 />
             </View>
 
@@ -405,6 +457,7 @@ export default function VendorSettings() {
                     thumbColor="#FFFFFF"
                     value={pushNotifications}
                     onValueChange={setPushNotifications}
+                    style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                 />
             </View>
 
@@ -415,6 +468,7 @@ export default function VendorSettings() {
                     thumbColor="#FFFFFF"
                     value={weeklySummary}
                     onValueChange={setWeeklySummary}
+                    style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                 />
             </View>
         </View>
@@ -458,6 +512,13 @@ export default function VendorSettings() {
                     console.log('Password Changed');
                     setShowPasswordModal(false);
                 }}
+            />
+
+            <DeleteConfirmationModal
+                visible={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onDelete={handleDeleteAccount}
+                title="Are you sure you want to delete your account?"
             />
         </SafeAreaView>
     );
@@ -666,5 +727,24 @@ const styles = StyleSheet.create({
         color: ColorConstants.BLACK2,
         flex: 1,
         marginRight: 10,
+    },
+    reviewContainer: {
+        alignItems: 'center',
+        paddingVertical: 30,
+        paddingHorizontal: 10,
+    },
+    reviewTitle: {
+        fontSize: 18,
+        fontFamily: Fonts.ManropeBold,
+        color: ColorConstants.BLACK2,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    reviewMessage: {
+        fontSize: 14,
+        fontFamily: Fonts.mulishRegular,
+        color: ColorConstants.DARK_CYAN,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

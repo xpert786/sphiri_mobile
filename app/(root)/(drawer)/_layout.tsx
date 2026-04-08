@@ -1,8 +1,8 @@
 // app/(root)/(drawer)/_layout.tsx
 import CustomDrawerContent from '@/components/CustomDrawerContent';
 import { Drawer } from 'expo-router/drawer';
-import { Dimensions } from 'react-native';
 import { useEffect } from 'react';
+import { Dimensions } from 'react-native';
 import { WebSocketService } from '../../services/WebSocketService';
 
 const width = Dimensions.get('window').width;

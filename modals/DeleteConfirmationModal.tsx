@@ -3,6 +3,7 @@ import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import React from 'react';
 import {
+    ActivityIndicator,
     Image,
     Modal,
     StyleSheet,
@@ -17,6 +18,7 @@ interface DeleteConfirmationModalProps {
     onDelete: () => void;
     title: string;
     subtitle?: string;
+    isLoading?: boolean;
 }
 
 const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
@@ -25,6 +27,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
     onDelete,
     title,
     subtitle,
+    isLoading = false,
 }) => {
     return (
         <Modal
@@ -57,10 +60,20 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                         <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
+                        <TouchableOpacity 
+                            style={[styles.deleteBtn, isLoading && { opacity: 0.7 }]} 
+                            onPress={onDelete}
+                            disabled={isLoading}
+                        >
                             <View style={styles.deleteBtnContent}>
-                                <Image source={Icons.ic_bin} style={styles.deleteIcon} />
-                                <Text style={styles.deleteText}>Delete</Text>
+                                {isLoading ? (
+                                    <ActivityIndicator size="small" color={ColorConstants.WHITE} />
+                                ) : (
+                                    <>
+                                        <Image source={Icons.ic_bin} style={styles.deleteIcon} />
+                                        <Text style={styles.deleteText}>Delete</Text>
+                                    </>
+                                )}
                             </View>
                         </TouchableOpacity>
                     </View>

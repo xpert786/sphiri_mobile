@@ -6,6 +6,7 @@ import CommonLoader from '@/components/CommonLoader';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
+import { StringConstants } from '@/constants/StringConstants';
 import { getDocumentAsync } from 'expo-document-picker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -274,6 +275,7 @@ export default function SignupVendor() {
                     onChangeText={(t) => handleInputChange('phone', t)}
                     placeholder="+ 152 251 02556"
                     keyboardType="phone-pad"
+                    maxLength={13}
                 />
 
                 <CustomTextInput
@@ -428,15 +430,15 @@ export default function SignupVendor() {
         <SafeAreaView style={styles.container}>
             <CommonLoader visible={loading} />
             <View style={styles.header}>
-                <TouchableOpacity onPress={handlePrevious} style={styles.backBtn}>
+                {/* <TouchableOpacity onPress={handlePrevious} style={styles.backBtn}>
                     <Image source={Icons.ic_left_arrow} style={styles.backIcon} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <Image source={Icons.ic_logo} style={styles.logo} resizeMode='contain' />
-                <View style={{ width: 24 }} />
+                {/* <View style={{ width: 24 }} /> */}
             </View>
 
             <View style={styles.stepHeader}>
-                <Text style={styles.stepTitle}>Complete Your Profile</Text>
+                <Text style={styles.stepTitle}>{StringConstants.COMPLETE_YOUR_PROFILE}</Text>
                 <Text style={styles.stepCount}>Step {currentStep} of 4</Text>
             </View>
             {renderProgressBar()}
@@ -468,9 +470,9 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
+        // justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 10,
     },
     backBtn: {
         padding: 4,
@@ -481,15 +483,16 @@ const styles = StyleSheet.create({
         resizeMode: 'contain',
     },
     logo: {
-        height: 40,
-        width: 150,
+        height: 100,
+        width: 180,
+        resizeMode: 'contain',
+        paddingVertical: -30
     },
     stepHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        marginTop: 20,
         marginBottom: 10
     },
     stepTitle: {

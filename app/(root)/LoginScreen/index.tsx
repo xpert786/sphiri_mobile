@@ -143,8 +143,9 @@ export default function LoginScreen() {
           ]);
         }
 
-        // @ts-ignorexs
-        router.replace('/(drawer)/Home');
+        // Always navigate to getting-started initially
+        // @ts-ignore
+        router.replace('/(root)/(drawer)/getting-started');
         return;
       } else {
         setAlertTitle('Login failed. Please try again.');
@@ -252,7 +253,7 @@ export default function LoginScreen() {
               >
                 <View style={styles.checkbox}>
                   {rememberMe && (
-                    <Image source={Icons.ic_checkbox_tick} />
+                    <Image source={Icons.ic_checkbox_tick} style={{ height: 15, width: 15, tintColor: ColorConstants.PRIMARY_BROWN }} />
                   )}
                 </View>
                 <Text style={styles.rememberMeText}>

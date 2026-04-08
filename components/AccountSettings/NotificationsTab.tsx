@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Alert,
     Image,
+    Platform,
     StyleSheet,
     Switch,
     Text,
@@ -204,6 +205,7 @@ const NotificationsTab = () => {
                                         onValueChange={() => toggleSetting(channel.id, option.id)}
                                         trackColor={{ false: '#E5E7EB', true: ColorConstants.PRIMARY_BROWN }}
                                         thumbColor={ColorConstants.WHITE}
+                                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                                     />
                                 </View>
                             ))}

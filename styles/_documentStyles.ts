@@ -46,7 +46,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 12,
         height: 44, // Increased height for better alignment
         backgroundColor: ColorConstants.WHITE,
-        width: '65%'
+        width: '60%'
     },
     searchAndShowRow: {
         flexDirection: 'row',
@@ -244,6 +244,7 @@ export const styles = StyleSheet.create({
     documentsList: {
         paddingHorizontal: 20,
         borderRadius: 10,
+
     },
 
     // --- Folder Management Styles ---
@@ -298,6 +299,7 @@ export const styles = StyleSheet.create({
         fontFamily: Fonts.mulishRegular,
         fontSize: 11,
         color: '#666',
+        marginRight: 65,
     },
     folderRight: {
         alignItems: 'flex-end',

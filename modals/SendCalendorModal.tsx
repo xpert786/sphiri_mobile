@@ -4,7 +4,7 @@ import AppDropdown from '@/components/AppDropdown';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import RNDateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import React, { useState } from 'react';
 import {
     Image,
@@ -35,20 +35,14 @@ const SendCalendorModal: React.FC<SendCalendorModalProps> = ({ visible, onClose 
     const [description, setDescription] = useState('');
 
     const onDateChange = (event: any, selectedDate?: Date) => {
-        const currentDate = selectedDate || date;
-        setShowDatePicker(Platform.OS === 'ios');
-        setDate(currentDate);
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
+        if (selectedDate) {
+            setDate(selectedDate);
         }
     };
 
     const onTimeChange = (event: any, selectedTime?: Date) => {
-        const currentTime = selectedTime || time;
-        setShowTimePicker(Platform.OS === 'ios');
-        setTime(currentTime);
-        if (Platform.OS === 'android') {
-            setShowTimePicker(false);
+        if (selectedTime) {
+            setTime(selectedTime);
         }
     };
 
@@ -57,7 +51,10 @@ const SendCalendorModal: React.FC<SendCalendorModalProps> = ({ visible, onClose 
     };
 
     const formatDate = (date: Date) => {
-        return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
     };
 
     return (
@@ -114,14 +111,12 @@ const SendCalendorModal: React.FC<SendCalendorModalProps> = ({ visible, onClose 
                                 </TouchableOpacity>
                             </View>
 
-                            {showDatePicker && (
-                                <RNDateTimePicker
-                                    value={date}
-                                    mode="date"
-                                    display="default"
-                                    onChange={onDateChange}
-                                />
-                            )}
+                            <CustomDatePicker
+                                show={showDatePicker}
+                                value={date}
+                                onChange={onDateChange}
+                                onClose={() => setShowDatePicker(false)}
+                            />
 
                             <View style={{ zIndex: 3000 }}>
                                 <TouchableOpacity onPress={() => setShowTimePicker(true)} activeOpacity={1}>
@@ -139,14 +134,13 @@ const SendCalendorModal: React.FC<SendCalendorModalProps> = ({ visible, onClose 
                                 </TouchableOpacity>
                             </View>
 
-                            {showTimePicker && (
-                                <RNDateTimePicker
-                                    value={time}
-                                    mode="time"
-                                    display="default"
-                                    onChange={onTimeChange}
-                                />
-                            )}
+                            <CustomDatePicker
+                                show={showTimePicker}
+                                value={time}
+                                mode="time"
+                                onChange={onTimeChange}
+                                onClose={() => setShowTimePicker(false)}
+                            />
 
                             <AppDropdown
                                 label="Timezone"

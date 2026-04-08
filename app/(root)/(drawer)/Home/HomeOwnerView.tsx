@@ -75,7 +75,7 @@ export default function HomeOwnerView({ userData }: any) {
         setDashboardData(response.data);
       }
     } catch (error) {
-      console.log("Error fetching dashboard data:", error);
+      console.log("Error fetching dashboard data in homeowner:", error);
     } finally {
       setLoading(false);
     }
@@ -99,7 +99,7 @@ export default function HomeOwnerView({ userData }: any) {
   }
 
   const stats = [
-    { count: dashboardData?.stats?.active_vendors?.toString() || '0', label: 'Active Vendors', icon: Icons.ic_active_vendor, route: '/(root)/(drawer)/(contacts)/contacts' },
+    { count: dashboardData?.stats?.active_vendors?.toString() || '0', label: 'Active Vendors', icon: Icons.ic_active_vendor, route: { pathname: '/(root)/(drawer)/(contacts)/contacts', params: { tab: 'vendor' } } as any },
     { count: personalContactsCount.toString(), label: 'Personal Contacts', icon: Icons.ic_users, route: '/(root)/(drawer)/(family)/family' },
     {
       count: `${dashboardData?.stats?.storage_usage?.used_display || '0'} / ${dashboardData?.stats?.storage_usage?.total_display || '0'}`, label: 'Storage Usage', icon: Icons.ic_storage, route: {

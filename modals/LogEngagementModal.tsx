@@ -2,12 +2,11 @@ import { Icons } from '@/assets';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import React, { useState } from 'react';
 import {
     Image,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -51,34 +50,23 @@ const LogEngagementModal: React.FC<LogEngagementModalProps> = ({
         }
     };
 
-    const formatDate = (date: Date) => {
-        const year = date.getFullYear();
+    const getFormattedDate = (date: Date | null) => {
+        if (!date) return 'MM/DD/YYYY';
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
-        }
         if (selectedDate) {
             handleInputChange('date', selectedDate);
-        }
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowDatePicker(false);
         }
     };
 
     const handleNextAppointmentChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowNextAppointmentPicker(false);
-        }
         if (selectedDate) {
             handleInputChange('nextAppointment', selectedDate);
-        }
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowNextAppointmentPicker(false);
         }
     };
 
@@ -164,7 +152,7 @@ const LogEngagementModal: React.FC<LogEngagementModalProps> = ({
                                     }}
                                 >
                                     <Text style={[styles.inputText, !formData.date && styles.placeholderText]}>
-                                        {formData.date ? formatDate(formData.date) : 'mm/dd/yyyy'}
+                                        {getFormattedDate(formData.date)}
                                     </Text>
                                     <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                                 </TouchableOpacity>
@@ -270,7 +258,7 @@ const LogEngagementModal: React.FC<LogEngagementModalProps> = ({
                                 }}
                             >
                                 <Text style={[styles.inputText, !formData.nextAppointment && styles.placeholderText]}>
-                                    {formData.nextAppointment ? formatDate(formData.nextAppointment) : 'mm/dd/yyyy'}
+                                    {getFormattedDate(formData.nextAppointment)}
                                 </Text>
                                 <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                             </TouchableOpacity>
@@ -287,24 +275,19 @@ const LogEngagementModal: React.FC<LogEngagementModalProps> = ({
                             </TouchableOpacity>
                         </View>
 
-                        {/* Date Pickers */}
-                        {showDatePicker && (
-                            <DateTimePicker
-                                value={formData.date || new Date()}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showDatePicker}
+                            value={formData.date}
+                            onChange={handleDateChange}
+                            onClose={() => setShowDatePicker(false)}
+                        />
 
-                        {showNextAppointmentPicker && (
-                            <DateTimePicker
-                                value={formData.nextAppointment || new Date()}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleNextAppointmentChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showNextAppointmentPicker}
+                            value={formData.nextAppointment}
+                            onChange={handleNextAppointmentChange}
+                            onClose={() => setShowNextAppointmentPicker(false)}
+                        />
                     </ScrollView>
                 </View>
             </View>

@@ -336,7 +336,7 @@ export default function Family() {
                     title={StringConstants.INVITE_MEMBER}
                     onPress={() => { setInviteModalVisible(true) }}
                     containerStyle={{ marginHorizontal: 20 }}
-                    icon={Icons.ic_mail}
+                    icon={Icons.ic_mail2}
                 />
 
                 <View style={styles.membersContainer}>
@@ -476,7 +476,13 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3,
-        marginHorizontal: 20
+        marginHorizontal: 20,
+
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 2,
     },
     activityContainer: {
         paddingBottom: 10,

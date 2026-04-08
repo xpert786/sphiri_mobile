@@ -13,6 +13,7 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Image,
+    Platform,
     StyleSheet,
     Switch,
     Text,
@@ -34,7 +35,6 @@ const SecurityTab = () => {
     const router = useRouter();
     const [show2FAModal, setShow2FAModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
     const [triggerType, setTriggerType] = useState('Inactivity Timer');
     const [showTriggerDropdown, setShowTriggerDropdown] = useState(false);
     const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
@@ -43,32 +43,31 @@ const SecurityTab = () => {
     const [selectedMembers, setSelectedMembers] = useState(['1']);
     const [familyMembers, setFamilyMembers] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(true);
-    const [loadingInventory, setLoadingInventory] = useState(true);
     const [sharedContent, setSharedContent] = useState({
         legal: true,
         medical: false,
         emergency: false,
         notes: false,
     });
-    const [emergencyData, setEmergencyData] = useState<any>(null);
     const [notifications, setNotifications] = useState({
         warning: true,
         triggered: true,
     });
-    const [inventoryItems, setInventoryItems] = useState<any[]>([]);
 
     useEffect(() => {
-        // fetchMembers(); // User wants to show only authorized_members from emergency access
+        fetchMembers(); // User wants to show only authorized_members from emergency access
         fetchEmergencyAccess();
-        fetchInventory();
     }, []);
 
     const fetchMembers = async () => {
         try {
             setLoadingMembers(true);
             const response = await apiGet(ApiConstants.MEMBERS);
+            console.log("response in memvers", response.data);
+
             if (response.data && response.data.results) {
                 setFamilyMembers(response.data.results);
+                setSelectedMembers(response?.data?.results.map((m: any) => m.id.toString()));
             }
         } catch (error) {
             console.error('Error fetching members in security tab:', error);
@@ -82,25 +81,24 @@ const SecurityTab = () => {
             setLoadingMembers(true);
             const response = await apiGet(ApiConstants.EMERGENCY_ACCESS);
             if (response.data) {
-                setEmergencyData(response.data);
                 // Extract authorized members
-                if (response.data.authorized_members) {
-                    setFamilyMembers(response.data.authorized_members);
-                    // Pre-select them if needed, or manage via API update later
-                    setSelectedMembers(response.data.authorized_members.map((m: any) => m.id.toString()));
-                }
+                // if (response.data.authorized_members) {
+                //     setFamilyMembers(response?.data?.authorized_members);
+                //     // Pre-select them if needed, or manage via API update later
+                //     setSelectedMembers(response?.data?.authorized_members.map((m: any) => m.id.toString()));
+                // }
                 // Update other fields based on response
-                setTriggerType(response.data.trigger_type_display || 'Inactivity Timer');
-                setDaysInactivity(response.data.emergency_inactivity_days?.toString() || '10');
+                setTriggerType(response.data?.trigger_type_display || 'Inactivity Timer');
+                setDaysInactivity(response.data?.emergency_inactivity_days?.toString() || '10');
                 setSharedContent({
-                    legal: response.data.emergency_share_legal_docs,
-                    medical: response.data.emergency_share_medical,
-                    emergency: response.data.emergency_share_contacts,
-                    notes: response.data.emergency_share_notes,
+                    legal: response.data?.emergency_share_legal_docs,
+                    medical: response.data?.emergency_share_medical,
+                    emergency: response.data?.emergency_share_contacts,
+                    notes: response.data?.emergency_share_notes,
                 });
                 setNotifications({
-                    warning: response.data.emergency_warning_email,
-                    triggered: response.data.emergency_confirmation_email,
+                    warning: response.data?.emergency_warning_email,
+                    triggered: response.data?.emergency_confirmation_email,
                 });
             }
         } catch (error) {
@@ -135,24 +133,35 @@ const SecurityTab = () => {
         }
     };
 
-    const fetchInventory = async () => {
-        try {
-            setLoadingInventory(true);
-            const response = await apiGet(ApiConstants.HOME_INVENTORY);
-            if (response.data && response.data.results) {
-                setInventoryItems(response.data.results);
-            }
-        } catch (error) {
-            console.error('Error fetching inventory:', error);
-        } finally {
-            setLoadingInventory(false);
-        }
-    };
+
 
     const toggleMember = (id: string) => {
         setSelectedMembers(prev =>
             prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
         );
+    };
+
+    const handleDeleteAccount = async () => {
+        try {
+            const response = await apiPost(ApiConstants.DELETE_ACCOUNT, { role: 'home_owner' });
+            if (response.status === 200 || response.status === 204) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Account Deleted',
+                    text2: 'Your account has been deleted successfully.',
+                });
+                setShowDeleteAccountModal(false);
+                // Navigate to Splash screen
+                router.replace('/(root)/Splash');
+            }
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete account. Please try again.',
+            });
+        }
     };
 
     const toggleSharedContent = (id: string) => {
@@ -243,23 +252,27 @@ const SecurityTab = () => {
                 </View>
                 {loadingMembers ? (
                     <ActivityIndicator size="small" color={ColorConstants.PRIMARY_BROWN} />
-                ) : familyMembers.map(member => (
-                    <TouchableOpacity
-                        key={member.id.toString()}
-                        style={styles.memberItem}
-                        onPress={() => toggleMember(member.id.toString())}
-                    >
-                        <View style={styles.checkbox}>
-                            {selectedMembers.includes(member.id.toString()) && (
-                                <Image source={Icons.ic_checkbox_selected} style={styles.checkIcon} />
-                            )}
-                        </View>
-                        <Text style={styles.memberName}>{member.invitee_name || member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.invitee_email}</Text>
-                        <View style={styles.roleLabel}>
-                            <Text style={styles.roleText}>{member.role_display || member.role}</Text>
-                        </View>
-                    </TouchableOpacity>
-                ))}
+                ) : familyMembers.length > 0 ? (
+                    familyMembers.map(member => (
+                        <TouchableOpacity
+                            key={member.id.toString()}
+                            style={styles.memberItem}
+                            onPress={() => toggleMember(member.id.toString())}
+                        >
+                            <View style={styles.checkbox}>
+                                {selectedMembers.includes(member.id.toString()) && (
+                                    <Image source={Icons.ic_checkbox_tick} style={styles.checkIcon} />
+                                )}
+                            </View>
+                            <Text style={styles.memberName}>{member.invitee_name || member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.invitee_email}</Text>
+                            <View style={styles.roleLabel}>
+                                <Text style={styles.roleText}>{member.role_display || member.role}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))
+                ) : (
+                    <Text style={styles.emptyText}>No Authorized members found</Text>
+                )}
 
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Select Shared Content</Text>
@@ -272,6 +285,7 @@ const SecurityTab = () => {
                             onValueChange={() => toggleSharedContent(content.id)}
                             trackColor={{ false: '#E5E7EB', true: ColorConstants.PRIMARY_BROWN }}
                             thumbColor={ColorConstants.WHITE}
+                            style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                         />
                     </View>
                 ))}
@@ -287,6 +301,7 @@ const SecurityTab = () => {
                         onValueChange={(val) => setNotifications(prev => ({ ...prev, warning: val }))}
                         trackColor={{ false: '#E5E7EB', true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
                 <View style={styles.toggleItem}>
@@ -296,6 +311,7 @@ const SecurityTab = () => {
                         onValueChange={(val) => setNotifications(prev => ({ ...prev, triggered: val }))}
                         trackColor={{ false: '#E5E7EB', true: ColorConstants.PRIMARY_BROWN }}
                         thumbColor={ColorConstants.WHITE}
+                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
                     />
                 </View>
 
@@ -379,28 +395,7 @@ const SecurityTab = () => {
             <DeleteConfirmationModal
                 visible={showDeleteAccountModal}
                 onClose={() => setShowDeleteAccountModal(false)}
-                onDelete={async () => {
-                    try {
-                        const response = await apiPost(ApiConstants.DELETE_ACCOUNT, { role: 'home_owner' });
-                        if (response.status === 200 || response.status === 204) {
-                            Toast.show({
-                                type: 'success',
-                                text1: 'Account Deleted',
-                                text2: 'Your account has been deleted successfully.',
-                            });
-                            setShowDeleteAccountModal(false);
-                            // Navigate to Splash screen
-                            router.replace('/(root)/Splash');
-                        }
-                    } catch (error) {
-                        console.error('Error deleting account:', error);
-                        Toast.show({
-                            type: 'error',
-                            text1: 'Error',
-                            text2: 'Failed to delete account. Please try again.',
-                        });
-                    }
-                }}
+                onDelete={handleDeleteAccount}
                 title="Are you sure you want to delete your account?"
             />
 
@@ -574,8 +569,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     checkIcon: {
-        width: 18,
-        height: 18,
+        width: 20,
+        height: 20,
+        tintColor: ColorConstants.PRIMARY_BROWN
     },
     memberName: {
         fontFamily: Fonts.ManropeMedium,

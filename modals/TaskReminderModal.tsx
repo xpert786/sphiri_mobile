@@ -1,4 +1,4 @@
-import { apiGet } from '@/api/apiMethods';
+import { apiGet, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import { ColorConstants } from '@/constants/ColorConstants';
@@ -14,6 +14,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 type ReminderDetails = {
     id: number;
@@ -42,6 +43,7 @@ type ReminderDetails = {
     status_display: string;
     is_completed: boolean;
     can_mark_complete: boolean;
+    days_left: number;
     created_at: string;
     updated_at: string;
 };
@@ -82,9 +84,29 @@ const TaskReminderModal: React.FC<TaskReminderModalProps> = ({
         }
     };
 
+    const handleMarkAsComplete = async () => {
+        try {
+            const response = await apiPost(`${ApiConstants.SHARED_REMINDERS}${task.id}/complete/`);
+            if (response.status === 200 || response.status === 201) {
+                if (onMarkComplete) onMarkComplete();
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Reminder marked as completed successfully',
+                });
+                onClose();
+            }
+        } catch (error) {
+            console.error('Error marking as complete:', error);
+        }
+    };
+
     if (!task) return null;
 
-    const displayData = reminderDetails || task;
+    const displayData = reminderDetails ? { ...task, ...reminderDetails } : task;
+
+
+
 
     return (
         <Modal
@@ -112,7 +134,6 @@ const TaskReminderModal: React.FC<TaskReminderModalProps> = ({
                             {/* Details Card */}
                             <View style={styles.detailsCard}>
                                 <DetailItem label="Description" value={displayData.description || 'N/A'} />
-                                {/* <DetailItem label="Contact/Vendor" value={displayData.contact_vendor_name || displayData.related_contact_name || 'N/A'} /> */}
                                 <DetailItem label="Assigned To" value={displayData.assigned_to_name || 'N/A'} />
                                 <DetailItem label="Category" value={displayData.category_name || 'N/A'} />
 
@@ -129,6 +150,19 @@ const TaskReminderModal: React.FC<TaskReminderModalProps> = ({
 
                                 <DetailItem label="Due Date" value={displayData.reminder_date || 'N/A'} />
 
+                                <DetailItem
+                                    label="Days Left"
+                                    value={
+                                        displayData.is_completed
+                                            ? 'Completed'
+                                            : displayData.days_left !== undefined
+                                                ? displayData.days_left < 0
+                                                    ? `${Math.abs(displayData.days_left)} days overdue`
+                                                    : 'Completed'
+                                                : 'N/A'
+                                    }
+                                />
+
                                 <View style={styles.detailItem}>
                                     <Text style={styles.detailLabel}>Priority</Text>
                                     <View style={[styles.priorityPill, { backgroundColor: displayData.priority_color || ColorConstants.ORANGE }]}>
@@ -138,8 +172,16 @@ const TaskReminderModal: React.FC<TaskReminderModalProps> = ({
 
                                 <View style={styles.detailItem}>
                                     <Text style={styles.detailLabel}>Status</Text>
-                                    <View style={styles.statusPill}>
-                                        <Text style={styles.statusText}>{displayData.status_display || 'Pending'}</Text>
+                                    <View style={[
+                                        styles.statusPill,
+                                        displayData.is_completed ? styles.statusCompleted : styles.statusPending
+                                    ]}>
+                                        <Text style={[
+                                            styles.statusText,
+                                            displayData.is_completed ? styles.statusTextCompleted : styles.statusTextPending
+                                        ]}>
+                                            {displayData.status_display || 'Pending'}
+                                        </Text>
                                     </View>
                                 </View>
                             </View>
@@ -151,7 +193,7 @@ const TaskReminderModal: React.FC<TaskReminderModalProps> = ({
                                 </TouchableOpacity>
 
                                 {!displayData.is_completed && (
-                                    <TouchableOpacity style={styles.Downloadbutton} onPress={onMarkComplete}>
+                                    <TouchableOpacity style={styles.Downloadbutton} onPress={handleMarkAsComplete}>
                                         <Text style={styles.Downloadtext}>Mark as Complete</Text>
                                     </TouchableOpacity>
                                 )}
@@ -274,15 +316,25 @@ const styles = StyleSheet.create({
     },
     statusPill: {
         alignSelf: 'flex-start',
-        backgroundColor: '#E6DCCF',
         paddingHorizontal: 16,
         paddingVertical: 4,
         borderRadius: 16,
     },
+    statusCompleted: {
+        backgroundColor: '#E8F5E9', // Light Green
+    },
+    statusPending: {
+        backgroundColor: '#FFF3E0', // Light Orange/Yellow
+    },
     statusText: {
         fontFamily: Fonts.interMedium,
         fontSize: 12,
-        color: ColorConstants.BLACK2,
+    },
+    statusTextCompleted: {
+        color: '#2E7D32', // Dark Green
+    },
+    statusTextPending: {
+        color: '#EF6C00', // Dark Orange
     },
     footer: {
         flexDirection: 'row',

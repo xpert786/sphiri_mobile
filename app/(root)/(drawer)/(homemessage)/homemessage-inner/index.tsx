@@ -36,6 +36,7 @@ export default function HomeMessageInner() {
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isPreviewVisible, setIsPreviewVisible] = useState(false);
     const flatListRef = useRef<FlatList>(null);
+    const textInputRef = useRef<TextInput>(null);
 
     // WebSocket Ref
     const wsServiceRef = useRef<WebSocketService | null>(null);
@@ -111,26 +112,52 @@ export default function HomeMessageInner() {
         }
     };
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         if (!message.trim() || !id || loading) return;
+        const currentMsg = message.trim();
+
+        // Clear input immediately for better UX
+        setMessage('');
+        textInputRef.current?.clear(); // Native clear for iOS reliability
+        setLoading(true);
         Keyboard.dismiss();
 
-        // Send text purely through WebSocket (attachment: null)
-        const sent = wsServiceRef.current?.send({
+        try {
+            // 1. Safety API Call
+            const response = await apiPost(`${ApiConstants.HOMEOWNER_MESSAGES}${id}/`, { text: currentMsg });
+            console.log("Send Message API Response:", response.data);
+
+            // Handle both direct and wrapped responses
+            let newMessage = response.data?.data || response.data;
+
+            if (newMessage) {
+                setConversationDetails((prev: any) => {
+                    if (prev?.messages?.some((m: any) => m.id === newMessage.id)) {
+                        return prev;
+                    }
+
+                    return {
+                        ...prev,
+                        messages: [...(prev?.messages || []), newMessage],
+                    };
+                });
+
+                setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                }, 100);
+            }
+        } catch (error) {
+            console.error("Error sending message via API:", error);
+        } finally {
+            setLoading(false);
+        }
+
+        // 2. Parallel WebSocket Send
+        wsServiceRef.current?.send({
             type: "message",
-            text: message,
+            text: currentMsg,
             attachment: null
         });
-
-        if (sent) {
-            setMessage('');
-            // Since backend broadcasts the message back in `type: "message"`, 
-            // the state will update automatically via `onMessage`. 
-            // If optimistic update is desired, appending here is also fine 
-            // (but must catch duplicate via ID check on incoming WS).
-        } else {
-            console.error("Failed to send message via WS");
-        }
     };
 
     const handlePickImage = async () => {
@@ -310,7 +337,7 @@ export default function HomeMessageInner() {
                             <FlatList
                                 ref={flatListRef}
                                 data={conversationDetails?.messages || []}
-                                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                                keyExtractor={(item, index) => `message-${item.id || 'no-id'}-${index}`}
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={styles.listContainer}
                                 style={{ flex: 1 }}
@@ -323,7 +350,7 @@ export default function HomeMessageInner() {
                                         !isSameDay(item.created_at, conversationDetails?.messages[index - 1]?.created_at);
 
                                     return (
-                                        <View key={item.id || index}>
+                                        <View>
                                             {showDateHeader && (
                                                 <View style={styles.dateHeaderContainer}>
                                                     <View style={styles.dateHeaderLine} />
@@ -382,6 +409,7 @@ export default function HomeMessageInner() {
 
                             <View style={styles.inputWrapper}>
                                 <TextInput
+                                    ref={textInputRef}
                                     style={styles.input}
                                     placeholder="Write your messages here..."
                                     placeholderTextColor={ColorConstants.GRAY}

@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiConstants } from '@/api/endpoints';
-import { AppState, AppStateStatus } from 'react-native';
 import { StringConstants } from '@/constants/StringConstants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus } from 'react-native';
 
 type WSMessageCallback = (data: any) => void;
 
@@ -14,7 +14,7 @@ export class WebSocketService {
   private backoffIntervals: number[] = [1000, 2000, 4000, 8000]; // 1s, 2s, 4s, 8s
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
-  
+
   private onMessageCallbacks: Set<WSMessageCallback> = new Set();
   private onConnectCallback: (() => void) | null = null;
   private onDisconnectCallback: (() => void) | null = null;
@@ -28,15 +28,15 @@ export class WebSocketService {
     // 2) The documentation states that WS use the root domain (e.g 168.231.121.7), ignoring path segments like /sphiri/api/
     const urlObj = new URL(ApiConstants.BASE_URL);
     let wsProtocol = urlObj.protocol.replace('http', 'ws');
-    
+
     // Explicitly construct purely from domain Host without api subpaths
     let baseUrl = `${wsProtocol}//${urlObj.host}`;
 
     // Ensure there is no double slash before the endpoint
     if (!endpointPath.startsWith('/')) {
-        this.url = `${baseUrl}/${endpointPath}`;
+      this.url = `${baseUrl}/${endpointPath}`;
     } else {
-        this.url = `${baseUrl}${endpointPath}`;
+      this.url = `${baseUrl}${endpointPath}`;
     }
 
     this.setupAppStateListener();
@@ -75,8 +75,8 @@ export class WebSocketService {
 
       const separator = this.url.includes('?') ? '&' : '?';
       const wsUrl = `${this.url}${separator}token=${this.token}`;
-      
-      console.log('Connecting to WebSocket:', wsUrl);
+
+      // console.log('Connecting to WebSocket:', wsUrl);
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
@@ -96,32 +96,32 @@ export class WebSocketService {
       };
 
       this.ws.onclose = (event) => {
-        console.log(`WebSocket closed: ${this.url}`, event.code, event.reason);
+        // console.log(`WebSocket closed: ${this.url}`, event.code, event.reason);
         this.stopPing();
         this.ws = null;
         if (this.onDisconnectCallback) this.onDisconnectCallback();
-        
+
         // Code 1006 indicates abnormal closure (e.g. network drop) or server disconnect
         if (event.code !== 1000 && this.currentAppState === 'active') { // 1000 = normal closure
-             this.handleReconnect();
+          this.handleReconnect();
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        // console.log('WebSocket error:', error);
         // Error is usually followed by close, which handles reconnection logic
       };
 
     } catch (e) {
-      console.error('Error in connect()', e);
+      console.log('Error in connect()', e);
     }
   }
 
   private handleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const delay = this.backoffIntervals[this.reconnectAttempts] || 8000;
-      console.log(`WebSocket reconnecting in ${delay}ms (Attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
-      
+      // console.log(`WebSocket reconnecting in ${delay}ms (Attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+
       this.reconnectTimeout = setTimeout(() => {
         this.reconnectAttempts++;
         this.connect();
@@ -151,7 +151,7 @@ export class WebSocketService {
       this.ws.send(JSON.stringify(data));
       return true;
     }
-    console.warn('WebSocket not open, cannot send:', data);
+    // console.warn('WebSocket not open, cannot send:', data);
     return false;
   }
 
@@ -161,7 +161,7 @@ export class WebSocketService {
       this.reconnectTimeout = null;
     }
     this.stopPing();
-    
+
     if (this.ws) {
       this.ws.close(1000, 'User initiated disconnect');
       this.ws = null;
@@ -180,7 +180,7 @@ export class WebSocketService {
   }
 
   // --- Subscriptions ---
-  
+
   public onMessage(callback: WSMessageCallback) {
     this.onMessageCallbacks.add(callback);
     return () => this.onMessageCallbacks.delete(callback);

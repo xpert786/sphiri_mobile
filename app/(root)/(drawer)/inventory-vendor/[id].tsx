@@ -73,10 +73,10 @@ export default function InventoryDetailScreen() {
         });
     };
 
-    const InfoCard = ({ label, value }: { label: string; value: string }) => (
+    const InfoCard = ({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) => (
         <View style={styles.infoCard}>
             <Text style={styles.cardLabel}>{label}</Text>
-            <Text style={styles.cardValue} numberOfLines={1}>{value ? (capitalizeFirstLetter(value) || 'N/A') : 'N/A'}</Text>
+            <Text style={styles.cardValue} numberOfLines={multiline ? undefined : 1}>{value ? (capitalizeFirstLetter(value) || 'N/A') : 'N/A'}</Text>
         </View>
     );
 
@@ -156,7 +156,7 @@ export default function InventoryDetailScreen() {
                     <InfoCard label="Assigned Vendor" value={data.vendor_name} />
                     <InfoCard label="Condition" value={data.condition} />
                     <InfoCard label="Purchase Date" value={formatDate(data.created_at)} />
-                    <InfoCard label="Additional Notes" value={data.notes} />
+                    <InfoCard label="Additional Notes" value={data.notes} multiline={true} />
 
                     {hasMediaDocs ? (
                         <>
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     },
     cardValue: {
         fontSize: 15,
-        fontFamily: Fonts.interBold,
+        fontFamily: Fonts.ManropeMedium,
         color: '#111827',
     },
     divider: {

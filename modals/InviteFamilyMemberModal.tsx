@@ -8,8 +8,11 @@ import { StringConstants } from '@/constants/StringConstants';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
     Image,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -656,7 +659,10 @@ const InviteFamilyMemberModal: React.FC<InviteFamilyMemberModalProps> = ({
             animationType="slide"
             onRequestClose={handleClose}
         >
-            <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.modalOverlay}
+            >
                 <View style={[styles.modalContainer, step === 2 && styles.modalContainerStep2]}>
                     {/* Header */}
                     <View style={styles.header}>
@@ -670,7 +676,7 @@ const InviteFamilyMemberModal: React.FC<InviteFamilyMemberModalProps> = ({
                 </View>
 
                 {showEmergencyConfig && renderEmergencyConfig()}
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
@@ -686,7 +692,7 @@ const styles = StyleSheet.create({
     modalContainer: {
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 16,
-        maxHeight: '90%',
+        maxHeight: Dimensions.get('window').height * 0.9,
         overflow: 'hidden',
         width: '100%'
     },

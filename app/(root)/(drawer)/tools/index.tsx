@@ -773,20 +773,21 @@ export default function ToolsScreen() {
                 tapOnBack={() => setDetailToolId(null)}
                 containerStyle={{ paddingTop: 10, paddingBottom: 16 }}
                 renderRight={detailToolId ? () => (
-                    <TouchableOpacity
-                        onPress={handleExportPDF}
-                        disabled={fetchingPdf}
-                        style={{ padding: 4, marginRight: 4 }}
-                    >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: '#FEE2E2' }}>
-                            {fetchingPdf ? (
-                                <ActivityIndicator size="small" color="#DC2626" />
-                            ) : (
-                                <MaterialCommunityIcons name="export" size={18} color="#DC2626" />
-                            )}
-                            <Text style={{ marginLeft: 4, fontSize: 11, fontFamily: Fonts.ManropeBold, color: '#DC2626' }}>Export</Text>
-                        </View>
-                    </TouchableOpacity>
+                    <View style={{ width: '100%', alignItems: 'flex-end', paddingHorizontal: 20 }}>
+                        <TouchableOpacity
+                            onPress={handleExportPDF}
+                            disabled={fetchingPdf}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: '#FEE2E2' }}>
+                                {fetchingPdf ? (
+                                    <ActivityIndicator size="small" color="#DC2626" />
+                                ) : (
+                                    <MaterialCommunityIcons name="export" size={18} color="#DC2626" />
+                                )}
+                                <Text style={{ marginLeft: 4, fontSize: 11, fontFamily: Fonts.ManropeBold, color: '#DC2626' }}>Export</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
                 ) : undefined}
             />
 
@@ -895,7 +896,7 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     summaryHeaderCard: {
-        backgroundColor: '#11323B',
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
         borderRadius: 24,
         padding: 24,
         flexDirection: 'row',
@@ -998,7 +999,7 @@ const styles = StyleSheet.create({
     },
     innerTableHeader: {
         flexDirection: 'row',
-        backgroundColor: '#11323B',
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
         paddingVertical: 12,
         paddingHorizontal: 16,
     },

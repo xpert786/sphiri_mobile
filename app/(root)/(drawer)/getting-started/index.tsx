@@ -2,7 +2,10 @@ import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useProfile } from '@/context/ProfileContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StringConstants } from '@/constants/StringConstants';
 import {
     ScrollView,
     StatusBar,
@@ -66,17 +69,145 @@ const BEST_PRACTICES = [
     },
 ];
 
+const TRUSTEE_HOW_IT_WORKS = [
+    {
+        icon: 'rocket-launch-outline',
+        title: 'Explore Shared Files',
+        description: "Check the 'Documents' tab to see what the homeowner has shared with you.",
+    },
+    {
+        icon: 'information-outline',
+        title: 'Stay Alert',
+        description: "Monitor the 'Tasks' section for any reminders or actions assigned to you.",
+    },
+    {
+        icon: 'lightbulb-outline',
+        title: 'Emergency Ready',
+        description: "Access the 'Emergency' section for critical contact numbers and protocols.",
+    },
+];
+
+const TRUSTEE_FAQS = [
+    {
+        q: 'Can I upload documents?',
+        a: "Family members can view and download shared documents. Upload permissions stay with the homeowner.",
+    },
+    {
+        q: 'How do I see recent updates?',
+        a: "Your dashboard shows a live feed of recent documents and reminders shared with you.",
+    },
+];
+
+const TRUSTEE_BEST_PRACTICES = [
+    {
+        title: 'Check Task Status',
+        description: 'Mark reminders as complete once done to keep the homeowner informed.',
+    },
+    {
+        title: 'Profile Accuracy',
+        description: 'Ensure your contact info is correct so you can be reached during emergencies.',
+    },
+];
+
+const VENDOR_HOW_IT_WORKS = [
+    {
+        icon: 'rocket-launch-outline',
+        title: 'Manage Clients',
+        description: 'View detailed profiles of the homeowners you serve and their property needs.',
+    },
+    {
+        icon: 'information-outline',
+        title: 'Upload Service Records',
+        description: "Send invoices, reports, and photos directly to your client's digital archive.",
+    },
+    {
+        icon: 'chart-line',
+        title: 'Track Analytics',
+        description: 'Monitor your business growth and client engagement through your dashboard.',
+    },
+];
+
+const VENDOR_FAQS = [
+    {
+        q: 'How do I gain more visibility?',
+        a: 'Provide high-quality service and ensure your profile is fully completed to appear in homeowner searches.',
+    },
+    {
+        q: 'Can I manage multiple properties for one client?',
+        a: 'Yes, clients can link you to one or all of their properties stored in Sphiri.',
+    },
+];
+
+const VENDOR_BEST_PRACTICES = [
+    {
+        title: 'Prompt Communication',
+        description: 'Respond to client messages quickly to build trust and professional rapport.',
+    },
+    {
+        title: 'Digital Transparency',
+        description: 'Always upload a service report after a visit so clients have a permanent record.',
+    },
+    {
+        title: 'Accurate Invoicing',
+        description: 'Link invoices to specific documents for easier tracking by homeowners.',
+    },
+];
+
+const getContent = (role: string | null) => {
+    switch (role) {
+        case 'family_member':
+            return {
+                how_it_works: TRUSTEE_HOW_IT_WORKS,
+                faqs: TRUSTEE_FAQS,
+                best_practices: TRUSTEE_BEST_PRACTICES,
+                hero_title: "Collaborative Home Management.",
+                hero_desc: "Access shared household information, stay on top of tasks, and know exactly what to do in emergencies.",
+            };
+        case 'vendor':
+            return {
+                how_it_works: VENDOR_HOW_IT_WORKS,
+                faqs: VENDOR_FAQS,
+                best_practices: VENDOR_BEST_PRACTICES,
+                hero_title: "Grow and Manage Your Business.",
+                hero_desc: "Connect with homeowners, manage your service history, and provide a premium digital experience to your clients.",
+            };
+        case 'home_owner':
+        default:
+            return {
+                how_it_works: HOW_IT_WORKS,
+                faqs: FAQS,
+                best_practices: BEST_PRACTICES,
+                hero_title: "Welcome to Sphiri! Your Home's Digital Hub.",
+                hero_desc: "Manage your documents, track property maintenance, and collaborate with family and vendors all in one secure place.",
+            };
+    }
+};
+
 export default function GettingStartedScreen() {
-    const handleGoToDashboard = () => {
-        router.replace('/(root)/(drawer)/Home');
+    const { role } = useProfile();
+    const [userRole, setUserRole] = useState<string | null>(role);
+
+    useEffect(() => {
+        if (!role) {
+            loadRole();
+        }
+    }, [role]);
+
+    const loadRole = async () => {
+        const storedRole = await AsyncStorage.getItem(StringConstants.USER_ROLE);
+        setUserRole(storedRole);
     };
+
+    const content = getContent(userRole);
+    const isTrustee = userRole === 'family_member';
+    const isVendor = userRole === 'vendor';
 
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={ColorConstants.WHITE} />
 
             {/* Back Header */}
-            <TouchableOpacity style={styles.backHeader} onPress={handleGoToDashboard} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.backHeader} onPress={() => router.replace('/(root)/(drawer)/Home')} activeOpacity={0.7}>
                 <View style={styles.backCircle}>
                     <MaterialCommunityIcons name="arrow-left" size={20} color="#11323B" />
                 </View>
@@ -88,10 +219,14 @@ export default function GettingStartedScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Hero Card */}
-                <View style={styles.heroCard}>
-                    <Text style={styles.heroTitle}>Welcome to Sphiri! Your Home's Digital Hub.</Text>
-                    <Text style={styles.heroSubtitle}>
-                        Manage your documents, track property maintenance, and collaborate with family and vendors all in one secure place.
+                <View style={[
+                    styles.heroCard,
+                    isTrustee && styles.trusteeHeroCard,
+                    isVendor && styles.vendorHeroCard
+                ]}>
+                    <Text style={styles.heroTitle}>{content.hero_title}</Text>
+                    <Text style={[styles.heroSubtitle, isTrustee && { opacity: 0.7 }]}>
+                        {content.hero_desc}
                     </Text>
                 </View>
 
@@ -101,9 +236,10 @@ export default function GettingStartedScreen() {
                     <Text style={styles.sectionTitle}>How It Works</Text>
                 </View>
 
-                {HOW_IT_WORKS.map((item, idx) => (
+                {content.how_it_works.map((item, idx) => (
                     <View key={idx} style={styles.stepCard}>
                         <View style={styles.stepIconBox}>
+                            {/* @ts-ignore */}
                             <MaterialCommunityIcons name={item.icon} size={26} color="#11323B" />
                         </View>
                         <View style={styles.stepTextBox}>
@@ -119,7 +255,7 @@ export default function GettingStartedScreen() {
                     <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
                 </View>
 
-                {FAQS.map((faq, idx) => (
+                {content.faqs.map((faq, idx) => (
                     <View key={idx} style={styles.faqCard}>
                         <View style={styles.faqTitleRow}>
                             <MaterialCommunityIcons name="help-circle-outline" size={20} color="#11323B" style={{ marginRight: 8 }} />
@@ -130,13 +266,13 @@ export default function GettingStartedScreen() {
                 ))}
 
                 {/* Best Practices */}
-                <View style={styles.bestPracticesCard}>
+                <View style={[styles.bestPracticesCard, isTrustee && styles.trusteeBestPracticesCard]}>
                     <View style={styles.bestPracticesHeader}>
                         <MaterialCommunityIcons name="lightbulb-outline" size={22} color="#11323B" style={{ marginRight: 8 }} />
                         <Text style={styles.bestPracticesTitle}>Best Practices</Text>
                     </View>
 
-                    {BEST_PRACTICES.map((bp, idx) => (
+                    {content.best_practices.map((bp, idx) => (
                         <View key={idx} style={styles.bpItem}>
                             <View style={styles.bpBullet} />
                             <View style={{ flex: 1 }}>
@@ -152,7 +288,15 @@ export default function GettingStartedScreen() {
                         {'"Sphiri is designed to give you peace of mind by keeping your most important asset organized."'}
                     </Text>
 
-                    <TouchableOpacity style={styles.startButton} onPress={handleGoToDashboard} activeOpacity={0.85}>
+                    <TouchableOpacity
+                        style={[
+                            styles.startButton,
+                            isTrustee && styles.trusteeStartButton,
+                            isVendor && styles.vendorStartButton
+                        ]}
+                        onPress={() => router.replace('/(root)/(drawer)/Home')}
+                        activeOpacity={0.85}
+                    >
                         <Text style={styles.startButtonText}>Start Using Sphiri now</Text>
                         <MaterialCommunityIcons name="chevron-right" size={20} color={ColorConstants.WHITE} />
                     </TouchableOpacity>
@@ -368,5 +512,23 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.ManropeBold,
         color: ColorConstants.WHITE,
         marginRight: 6,
+    },
+    trusteeHeroCard: {
+        backgroundColor: '#4B5563', // Matches the dark gray/blue aesthetic
+        paddingVertical: 32,
+    },
+    trusteeBestPracticesCard: {
+        backgroundColor: '#F8FAFC', // Slightly different for Trustee contrast
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    trusteeStartButton: {
+        backgroundColor: '#4B5563',
+    },
+    vendorHeroCard: {
+        backgroundColor: '#9F7161', // Matches the rust/brown logic from screenshot visually or PRIMARY_BROWN
+    },
+    vendorStartButton: {
+        backgroundColor: '#9F7161',
     },
 });

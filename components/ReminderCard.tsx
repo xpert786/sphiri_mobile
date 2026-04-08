@@ -1,5 +1,6 @@
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
+import { capitalizeFirstLetter } from '@/constants/Helper';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -27,7 +28,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         } else if (item.priority_name == "Medium Priority") {
             return ColorConstants.ORANGE10;
         } else {
-            return ColorConstants.GRAY3;
+            return ColorConstants.GREEN10;
         }
     }
 
@@ -37,7 +38,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         } else if (item.priority_name == "Medium Priority") {
             return ColorConstants.ORANGE;
         } else {
-            return ColorConstants.BLACK2;
+            return ColorConstants.GREEN;
         }
     }
 
@@ -46,7 +47,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         <View style={[styles.reminderCard, isLast && styles.noDivider]}>
             <View style={styles.reminderHeader}>
                 <View style={{ flexDirection: 'column' }}>
-                    <Text style={styles.reminderTitle}>{item.title}</Text>
+                    <Text style={styles.reminderTitle}>{capitalizeFirstLetter(item.title)}</Text>
                     <Text style={styles.reminderDetail}>{item.due_display}</Text>
                 </View>
                 <View

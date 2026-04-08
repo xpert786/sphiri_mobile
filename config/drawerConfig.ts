@@ -1,10 +1,11 @@
 import { Icons } from '@/assets';
+import { Href } from 'expo-router';
 
 export type UserRole = 'home_owner' | 'family_member' | 'vendor';
 
 export type DrawerItemConfig = {
     label: string;
-    route: string;
+    route: Href;
     icon: any;
     isVectorIcon?: boolean;
 };
@@ -21,12 +22,13 @@ export const DRAWER_CONFIG: Record<UserRole, DrawerItemConfig[]> = {
         { label: 'Reminders', route: '/(root)/(drawer)/set-reminder', icon: 'bell-ring-outline', isVectorIcon: true },
         { label: 'Family Sharing', route: '/(root)/(drawer)/(family)/family', icon: Icons.ic_family_sharing },
         { label: 'Home Inventory', route: '/(root)/(drawer)/home-inventory', icon: 'cube-outline', isVectorIcon: true },
-        { label: 'Account Settings', route: '/(root)/(drawer)/account-settings', icon: Icons.ic_settings },
+        { label: 'Account Settings', route: '/(root)/(drawer)/account-settings', icon: 'cog-outline', isVectorIcon: true },
         { label: 'Help & Support', route: '/(root)/(drawer)/support-tools', icon: 'tools', isVectorIcon: true },
         { label: 'Tools', route: '/(root)/(drawer)/tools', icon: 'wrench', isVectorIcon: true },
     ],
 
     family_member: [
+        { label: 'Getting Started', route: '/(root)/(drawer)/getting-started', icon: Icons.ic_info },
         { label: 'Dashboard', route: '/(root)/(drawer)/Home', icon: Icons.ic_dashboard },
         { label: 'Documents', route: '/(root)/(drawer)/upload-document', icon: Icons.ic_doc_trustee },
         { label: 'Tasks & Reminders', route: '/(root)/(drawer)/tasks-and-reminders', icon: Icons.ic_bell_ring },
@@ -35,6 +37,7 @@ export const DRAWER_CONFIG: Record<UserRole, DrawerItemConfig[]> = {
     ],
 
     vendor: [
+        { label: 'Getting Started', route: '/(root)/(drawer)/getting-started', icon: Icons.ic_info },
         { label: 'Dashboard', route: '/(root)/(drawer)/Home', icon: Icons.ic_dashboard },
         { label: 'Grow Business', route: '/(root)/(drawer)/grow-business', icon: 'layers-triple-outline', isVectorIcon: true },
         { label: 'Clients', route: '/(root)/(drawer)/(clients)/clients', icon: Icons.ic_contacts },

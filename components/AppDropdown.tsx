@@ -25,6 +25,7 @@ interface AppDropdownProps {
     placeholder?: string;
     zIndex?: number;
     dropdownWidth?: DimensionValue;
+    inputStyles?: any;
 }
 
 const AppDropdown: React.FC<AppDropdownProps> = ({
@@ -35,6 +36,7 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
     placeholder = 'Select option',
     zIndex = 1000,
     dropdownWidth,
+    inputStyles
 }) => {
     const [visible, setVisible] = useState(false);
     const [dropdownTop, setDropdownTop] = useState(0);
@@ -75,6 +77,7 @@ const AppDropdown: React.FC<AppDropdownProps> = ({
                     editable={false}
                     onRightIconPress={toggleDropdown}
                     parentStyles={{ pointerEvents: 'none' }}
+                    inputStyles={inputStyles}
                 />
             </TouchableOpacity>
 

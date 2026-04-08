@@ -1,10 +1,11 @@
-import { apiGet } from '@/api/apiMethods';
+import { apiGet, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import TaskReminderModal from '@/modals/TaskReminderModal';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -22,6 +23,7 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 // API Response type definitions
 type Reminder = {
@@ -98,7 +100,7 @@ export default function TasksAndReminders() {
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [selectedReminders, setSelectedReminders] = useState<Reminder[]>([]);
 
-    const [selectedDate, setSelectedDate] = useState('2023-10-04'); // Example date from screenshot
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Initialized to today's date
 
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Reminder | null>(null);
@@ -109,7 +111,7 @@ export default function TasksAndReminders() {
         } else {
             fetchCalendarData();
         }
-    }, [searchText, activeTab, currentMonth, currentYear]);
+    }, [searchText, activeTab, currentMonth, currentYear, selectedDate]);
 
     const fetchReminders = async () => {
         setLoading(true);
@@ -133,7 +135,7 @@ export default function TasksAndReminders() {
     const fetchCalendarData = async () => {
         setCalendarLoading(true);
         try {
-            const response = await apiGet(`${ApiConstants.SHARED_REMINDERS_CALENDAR}?month=${currentMonth}&year=${currentYear}`);
+            const response = await apiGet(`${ApiConstants.SHARED_REMINDERS_CALENDAR}?month=${currentMonth}&year=${currentYear}&date=${selectedDate}`);
             const data: CalendarResponse = response.data;
             console.log("data in fetchCalendarData", data);
 
@@ -155,6 +157,22 @@ export default function TasksAndReminders() {
     const handleCloseModal = () => {
         setModalVisible(false);
         setSelectedTask(null);
+    };
+
+    const handleMarkAsComplete = async (taskId: number) => {
+        try {
+            const response = await apiPost(`${ApiConstants.SHARED_REMINDERS}${taskId}/complete/`);
+            if (response.status === 200 || response.status === 201) {
+                activeTab === 'Reminders' ? fetchReminders() : fetchCalendarData();
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Reminder marked as completed successfully',
+                });
+            }
+        } catch (error) {
+            console.error('Error marking as complete:', error);
+        }
     };
 
     const dailyReminders = [
@@ -205,6 +223,34 @@ export default function TasksAndReminders() {
         return marked;
     };
 
+    const renderCalendarReminderItem = ({ item }: { item: Reminder }) => (
+        <View style={styles.dailyReminderCard}>
+            <View style={styles.reminderHeader}>
+                <TouchableOpacity style={styles.checkboxContainer}>
+                    <View style={styles.checkbox} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                    <View style={styles.reminderTitleRow}>
+                        <View style={[styles.statusDot, { backgroundColor: item.priority_color }]} />
+                        <Text style={styles.reminderTitle}>{item.title}</Text>
+                    </View>
+                    <View style={styles.reminderMetaRow}>
+                        <Image source={Icons.ic_clock} style={styles.metaIcon} />
+                        <Text style={styles.metaText}>{item.reminder_time}</Text>
+                        <View style={styles.metaDivider} />
+                        <Image source={Icons.ic_user_single} style={styles.metaIcon} />
+                        <Text style={styles.metaText}>Assigned to: {item.assigned_to_display}</Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.reminderContent}>
+                <Text style={styles.reminderDescription}>{item.description}</Text>
+            </View>
+        </View>
+    );
+
+
     const renderCalendarView = () => (
         <View style={styles.calendarViewContainer}>
             <View style={styles.calendarWrapper}>
@@ -245,44 +291,7 @@ export default function TasksAndReminders() {
                 Reminders for {selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}
             </Text>
 
-            {/* {selectedReminders.map((reminder) => (
-                <View key={reminder.id} style={styles.dailyReminderCard}>
-                    <View style={styles.reminderHeader}>
-                        <TouchableOpacity style={styles.checkboxContainer}>
-                            <View style={styles.checkbox} />
-                        </TouchableOpacity>
-                        <View style={{ flex: 1 }}>
-                            <View style={styles.reminderTitleRow}>
-                                <View style={[styles.statusDot, { backgroundColor: reminder.priority_color }]} />
-                                <Text style={styles.reminderTitle}>{reminder.title}</Text>
-                            </View>
-                            <View style={styles.reminderMetaRow}>
-                                <Image source={Icons.ic_clock} style={styles.metaIcon} />
-                                <Text style={styles.metaText}>{reminder.reminder_time}</Text>
-                                <View style={styles.metaDivider} />
-                                <Image source={Icons.ic_user_single} style={styles.metaIcon} />
-                                <Text style={styles.metaText}>Assigned to: {reminder.assigned_to_display}</Text>
-                            </View>
-                        </View>
-                    </View>
 
-                    <View style={styles.reminderContent}>
-                        <Text style={styles.reminderDescription}>{reminder.description}</Text>
-
-                        <View style={styles.reminderActions}>
-                            <TouchableOpacity style={styles.actionBtnSquare}>
-                                <Image source={Icons.ic_edit} style={styles.actionBtnIcon} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionBtnSquare}>
-                                <Image source={Icons.ic_clock} style={styles.actionBtnIcon} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionBtnSquare}>
-                                <Image source={Icons.ic_bin2} style={styles.actionBtnIcon} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            ))} */}
 
             <FlatList
                 data={selectedReminders}
@@ -294,50 +303,12 @@ export default function TasksAndReminders() {
         </View>
     );
 
-    const renderCalendarReminderItem = ({ item }: { item: Reminder }) => (
-        <View style={styles.dailyReminderCard}>
-            <View style={styles.reminderHeader}>
-                <TouchableOpacity style={styles.checkboxContainer}>
-                    <View style={styles.checkbox} />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                    <View style={styles.reminderTitleRow}>
-                        <View style={[styles.statusDot, { backgroundColor: item.priority_color }]} />
-                        <Text style={styles.reminderTitle}>{item.title}</Text>
-                    </View>
-                    <View style={styles.reminderMetaRow}>
-                        <Image source={Icons.ic_clock} style={styles.metaIcon} />
-                        <Text style={styles.metaText}>{item.reminder_time}</Text>
-                        <View style={styles.metaDivider} />
-                        <Image source={Icons.ic_user_single} style={styles.metaIcon} />
-                        <Text style={styles.metaText}>Assigned to: {item.assigned_to_display}</Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={styles.reminderContent}>
-                <Text style={styles.reminderDescription}>{item.description}</Text>
-
-                {/* <View style={styles.reminderActions}>
-                    <TouchableOpacity style={styles.actionBtnSquare}>
-                        <Image source={Icons.ic_edit} style={styles.actionBtnIcon} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtnSquare}>
-                        <Image source={Icons.ic_clock} style={styles.actionBtnIcon} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtnSquare}>
-                        <Image source={Icons.ic_bin2} style={styles.actionBtnIcon} />
-                    </TouchableOpacity>
-                </View> */}
-            </View>
-        </View>
-    );
 
     const renderItem = ({ item }: { item: Reminder }) => {
         const isExpanded = expandedId === item.id;
 
         return (
-            <View style={styles.cardContainer}>
+            <View style={[styles.cardContainer, { borderLeftColor: item.priority_color, borderLeftWidth: 4 }]}>
                 <TouchableOpacity
                     style={styles.cardHeader}
                     onPress={() => toggleExpand(item.id)}
@@ -355,46 +326,61 @@ export default function TasksAndReminders() {
 
                 {isExpanded && (
                     <View style={styles.cardContent}>
-                        <Text style={styles.sectionLabel}>Reminders Information</Text>
+                        <View style={styles.dividerFull} />
 
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>Category</Text>
-                            <View style={styles.tagContainer}>
-                                <Text style={styles.tagText}>{item.category_name}</Text>
+                        <View style={styles.contentRow}>
+                            <View style={styles.contentColumn}>
+                                <Text style={styles.fieldLabel}>Category</Text>
+                                <View style={styles.tagContainer}>
+                                    <Text style={styles.tagText}>{item.category_name}</Text>
+                                </View>
+                            </View>
+                            <View style={styles.contentColumn}>
+                                <Text style={styles.fieldLabel}>Priority</Text>
+                                <View style={[styles.priorityTag, { backgroundColor: item.priority_color }]}>
+                                    <Text style={styles.priorityText}>{item.priority_display}</Text>
+                                </View>
                             </View>
                         </View>
 
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>Priority</Text>
-                            <View style={[styles.priorityTag, { backgroundColor: item.priority_color }]}>
-                                <Text style={styles.priorityText}>{item.priority_display}</Text>
+                        <View style={styles.contentRow}>
+                            <View style={styles.contentColumn}>
+                                <Text style={styles.fieldLabel}>Due Date</Text>
+                                <View style={styles.iconInfoRow}>
+                                    <Image source={Icons.ic_clock} style={styles.fieldIcon} />
+                                    <Text style={styles.fieldValue}>{item.reminder_date}</Text>
+                                </View>
                             </View>
-                        </View>
-
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>Due Date</Text>
-                            <Text style={styles.fieldValue}>{item.reminder_date}</Text>
-                        </View>
-
-                        <View style={styles.fieldContainer}>
-                            <Text style={styles.fieldLabel}>Status</Text>
-                            <View style={styles.statusTag}>
-                                <Text style={styles.tagText}>{item.status_display}</Text>
+                            <View style={styles.contentColumn}>
+                                <Text style={styles.fieldLabel}>Status</Text>
+                                <View style={[styles.statusTag, item.is_completed && { backgroundColor: ColorConstants.GREEN10 }]}>
+                                    <Text style={[styles.tagText, item.is_completed && { color: ColorConstants.GREEN }]}>{item.status_display}</Text>
+                                </View>
                             </View>
                         </View>
 
                         <View style={styles.fieldContainer}>
                             <Text style={styles.fieldLabel}>Assigned To</Text>
-                            <Text style={styles.fieldValue}>{item.assigned_to_display}</Text>
+                            <View style={styles.iconInfoRow}>
+                                <Image source={Icons.ic_user_single} style={styles.fieldIcon} />
+                                <Text style={styles.fieldValue}>{item.assigned_to_display}</Text>
+                            </View>
                         </View>
 
                         <View style={styles.actionButtonsRow}>
                             <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenModal(item)}>
-                                <Image source={Icons.ic_eye_gray} />
+                                <MaterialCommunityIcons name="eye-outline" size={16} color={ColorConstants.GRAY} style={{ marginRight: 6 }} />
+                                <Text style={styles.actionButtonText}>View</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Image source={Icons.ic_checkbox_selected} style={styles.actionIcon} />
-                            </TouchableOpacity>
+                            {item.status_display !== 'Completed' && (
+                                <TouchableOpacity
+                                    style={[styles.actionButton, styles.completeButton]}
+                                    onPress={() => handleMarkAsComplete(item.id)}
+                                >
+                                    <MaterialCommunityIcons name="check-bold" size={16} color={ColorConstants.WHITE} style={{ marginRight: 6 }} />
+                                    <Text style={[styles.actionButtonText, { color: ColorConstants.WHITE }]}>Complete</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
                 )}
@@ -513,6 +499,7 @@ export default function TasksAndReminders() {
                 visible={modalVisible}
                 onClose={handleCloseModal}
                 task={selectedTask}
+                onMarkComplete={activeTab === 'Reminders' ? fetchReminders : fetchCalendarData}
             />
         </SafeAreaView>
     );
@@ -614,7 +601,7 @@ const styles = StyleSheet.create({
         borderColor: ColorConstants.GRAY3,
         borderRadius: 8,
         paddingHorizontal: 12,
-        paddingVertical: Platform.OS === 'ios' ? 12 : 0,
+        paddingVertical: Platform.OS === 'ios' ? 8 : 4,
         backgroundColor: ColorConstants.WHITE,
     },
     searchIcon: {
@@ -625,10 +612,10 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        fontSize: 13,
+        fontSize: 14,
         fontFamily: Fonts.mulishRegular,
         color: ColorConstants.BLACK2,
-        height: 40
+        paddingVertical: 0,
     },
     listSection: {
         paddingHorizontal: 20,
@@ -646,6 +633,11 @@ const styles = StyleSheet.create({
         borderColor: ColorConstants.GRAY3,
         marginBottom: 12,
         overflow: 'hidden',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     cardHeader: {
         padding: 16,
@@ -738,18 +730,53 @@ const styles = StyleSheet.create({
     actionButtonsRow: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        marginTop: 10,
-        gap: 10
+        marginTop: 16,
+        gap: 12,
     },
     actionButton: {
-        width: 20,
-        height: 20,
-        borderRadius: 6,
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
     },
-    filledActionButton: {
-        backgroundColor: ColorConstants.DARK_CYAN, // Darker color for check
+    completeButton: {
+        backgroundColor: ColorConstants.DARK_CYAN,
+    },
+    actionIconSize: {
+        width: 14,
+        height: 14,
+        resizeMode: 'contain',
+        marginRight: 6,
+    },
+    actionButtonText: {
+        fontSize: 12,
+        fontFamily: Fonts.ManropeMedium,
+        color: ColorConstants.GRAY,
+    },
+    dividerFull: {
+        height: 1,
+        backgroundColor: ColorConstants.GRAY3,
+        marginVertical: 12,
+    },
+    contentRow: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    contentColumn: {
+        flex: 1,
+    },
+    iconInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    fieldIcon: {
+        width: 14,
+        height: 14,
+        marginRight: 6,
+        tintColor: ColorConstants.DARK_CYAN,
+        resizeMode: 'contain',
     },
     actionIcon: {
         width: 20,

@@ -24,6 +24,7 @@ interface HierarchicalDropdownProps {
     onSelect: (val: string) => void; // val is the label
     placeholder?: string;
     dropdownWidth?: DimensionValue;
+    inputStyles?: any;
 }
 
 const HierarchicalDropdown: React.FC<HierarchicalDropdownProps> = ({
@@ -33,6 +34,7 @@ const HierarchicalDropdown: React.FC<HierarchicalDropdownProps> = ({
     onSelect,
     placeholder = 'Select option',
     dropdownWidth = 300,
+    inputStyles
 }) => {
     const [visible, setVisible] = useState(false);
     const [dropdownTop, setDropdownTop] = useState(0);
@@ -71,6 +73,7 @@ const HierarchicalDropdown: React.FC<HierarchicalDropdownProps> = ({
                     editable={false}
                     onRightIconPress={toggleDropdown}
                     parentStyles={{ pointerEvents: 'none' }}
+                    inputStyles={inputStyles}
                 />
             </TouchableOpacity>
 

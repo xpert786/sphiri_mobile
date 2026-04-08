@@ -1,10 +1,10 @@
 import { Icons } from '@/assets';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import { handleDownload } from '@/constants/Helper';
+import { capitalizeFirstLetter, handleDownload } from '@/constants/Helper';
+import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import { Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 
 export type DocumentItem = {
     id: number;
@@ -27,6 +27,8 @@ export type DocumentItem = {
     isLocked?: boolean;
     showInfo?: boolean;
     isExpiringSoon?: boolean;
+    propertyName?: string;
+    tags?: string[];
 };
 
 type Props = {
@@ -61,6 +63,7 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
 
     const showExpiringSoonBanner = daysUntilExpiry !== null && daysUntilExpiry >= 1 && daysUntilExpiry <= 3;
     const showExpiresTodayBanner = daysUntilExpiry === 0;
+    const showExpiredBanner = daysUntilExpiry !== null && daysUntilExpiry < 0;
 
     return (
         <View style={styles.documentCard}>
@@ -91,7 +94,7 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
                 <View style={styles.contactRow}>
                     <Text style={styles.contactLabel}>Contact: </Text>
                     <Text style={styles.contactValue} numberOfLines={1}>
-                        {allLinkedContacts.join(', ')}
+                        {capitalizeFirstLetter(allLinkedContacts.join(', '))}
                     </Text>
                 </View>
             )}
@@ -105,20 +108,20 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
                         <Text style={styles.detailValue}>{displayFileType}</Text>
                     </View>
                 ) : null}
-                {item.fileSize && (
+                {/* {item.fileSize && (
                     <View style={styles.detailRow}>
                         <View style={styles.bullet} />
                         <Text style={styles.detailLabel}>Size: </Text>
                         <Text style={styles.detailValue}>{item.fileSize}</Text>
                     </View>
-                )}
-                {item.uploadedBy && (
+                )} */}
+                {/* {item.uploadedBy && (
                     <View style={styles.detailRow}>
                         <View style={styles.bullet} />
                         <Text style={styles.detailLabel}>Issued by: </Text>
                         <Text style={styles.detailValue}>{item.uploadedBy}</Text>
                     </View>
-                )}
+                )} */}
                 {item.issuedDate && (
                     <View style={styles.detailRow}>
                         <View style={styles.bullet} />
@@ -128,9 +131,9 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
                 )}
                 {item.expirationDate && (
                     <View style={styles.detailRow}>
-                        <View style={[styles.bullet, (showExpiringSoonBanner || showExpiresTodayBanner) && { backgroundColor: ColorConstants.RED }]} />
+                        <View style={[styles.bullet, (showExpiringSoonBanner || showExpiresTodayBanner || showExpiredBanner) && { backgroundColor: ColorConstants.RED }]} />
                         <Text style={styles.detailLabel}>Expires: </Text>
-                        <Text style={[styles.detailValue, (showExpiringSoonBanner || showExpiresTodayBanner) && { color: ColorConstants.RED }]}>
+                        <Text style={[styles.detailValue, (showExpiringSoonBanner || showExpiresTodayBanner || showExpiredBanner) && { color: ColorConstants.RED }]}>
                             {item.expirationDate}
                         </Text>
                     </View>
@@ -138,7 +141,7 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
             </View>
 
             {/* Bottom row: Status badge + Version */}
-            <View style={styles.bottomRow}>
+            {/* <View style={styles.bottomRow}>
                 {item.status && (
                     <View style={[
                         styles.statusBadge,
@@ -158,7 +161,7 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
                         <Text style={styles.versionText}>{item.versionCount} version</Text>
                     </View>
                 )}
-            </View>
+            </View> */}
 
             {/* Expiring Today Banner */}
             {showExpiresTodayBanner && (
@@ -177,6 +180,16 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
                     </Text>
                 </View>
             )}
+
+            {/* Expired Banner */}
+            {showExpiredBanner && (
+                <View style={[styles.expiringBadge, { backgroundColor: ColorConstants.RED }]}>
+                    <Image source={Icons.ic_warn} style={styles.expiringIcon} />
+                    <Text style={styles.expiringText}>
+                        Expired {Math.abs(daysUntilExpiry || 0)} {Math.abs(daysUntilExpiry || 0) === 1 ? 'day' : 'days'} ago
+                    </Text>
+                </View>
+            )}
         </View>
     );
 };
@@ -189,6 +202,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3,
+
     },
     headerRow: {
         flexDirection: 'row',
@@ -240,7 +254,7 @@ const styles = StyleSheet.create({
     },
     detailsContainer: {
         gap: 6,
-        marginBottom: 12,
+        // marginBottom: 12,
     },
     detailRow: {
         flexDirection: 'row',

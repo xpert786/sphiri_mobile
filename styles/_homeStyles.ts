@@ -177,11 +177,6 @@ export const styles = StyleSheet.create({
         marginBottom: 0, // Handled by gap
         borderWidth: 1,
         borderColor: ColorConstants.GRAY3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
     },
     statCard2: {
         width: '31%', // Adjusted to fit 2 per row better with gap
@@ -261,12 +256,6 @@ export const styles = StyleSheet.create({
         gap: 12,
         alignItems: 'center',
         backgroundColor: ColorConstants.WHITE,
-
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
     },
 
     name: {

@@ -1,6 +1,7 @@
 import { apiGet, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
+import ApiErrorModal from '@/components/ApiErrorModal';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
@@ -8,8 +9,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
+    Dimensions,
     Image,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -45,13 +49,18 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         email: '',
         visibility_id: '',
         visibility_name: '',
-        address: '',
+        address_line1: '',
+        city: '',
+        state: '',
+        zip_code: '',
+        country: '',
         emergency_contact: '',
         website: '',
         notes: '',
         rating: '',
         logo_url: null as any,
         is_text_enabled: false,
+        is_alternate_text_enabled: false,
     });
 
     const [activeTab, setActiveTab] = useState<'personal' | 'vendor'>('personal');
@@ -64,10 +73,10 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     const [selectedSubCategory, setSelectedSubCategory] = useState<any>(null);
     const [selectedDetailedCategory, setSelectedDetailedCategory] = useState<any>(null);
 
-    const [apiTags, setApiTags] = useState<{ label: string; value: string }[]>([]);
-    const [showTagDropdown, setShowTagDropdown] = useState(false);
+    const [categoryTagGroups, setCategoryTagGroups] = useState<any[]>([]);
+    const [selectedCategoryTagIds, setSelectedCategoryTagIds] = useState<(string | number)[]>([]);
+    const [expandedCategoryGroups, setExpandedCategoryGroups] = useState<Set<string>>(new Set());
 
-    const [tags, setTags] = useState<{ id: string | number; name: string }[]>([]);
     const [apiVisibilityOptions, setApiVisibilityOptions] = useState<{ id: string | number; name: string }[]>([]);
     const [selectedVisibilityIds, setSelectedVisibilityIds] = useState<(string | number)[]>([]);
     const [selectedVisibilityNames, setSelectedVisibilityNames] = useState<string[]>([]);
@@ -76,6 +85,12 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     const [personalCategories, setPersonalCategories] = useState<{ id: string | number; name: string }[]>([]);
     const [vendorCategoriesData, setVendorCategoriesData] = useState<any[]>([]);
     const [selectedDocuments, setSelectedDocuments] = useState<any[]>([]);
+
+    // Global Tags State
+    const [globalTagGroups, setGlobalTagGroups] = useState<any[]>([]);
+    const [selectedGlobalTagIds, setSelectedGlobalTagIds] = useState<(string | number)[]>([]);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const [showGlobalTagDropdown, setShowGlobalTagDropdown] = useState(false);
 
     // Tagged Properties State
     const [allProperties, setAllProperties] = useState<any[]>([]);
@@ -96,6 +111,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         notes: ''
     });
     const [propertyErrors, setPropertyErrors] = useState<Record<string, string>>({});
+    const [apiErrorModalVisible, setApiErrorModalVisible] = useState(false);
+    const [apiErrorData, setApiErrorData] = useState<any>(null);
 
     const propertyTypeOptions = [
         { label: 'Primary Residence', value: 'primary' },
@@ -112,7 +129,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     useEffect(() => {
         if (visible) {
             fetchCategories();
-            fetchTags();
+            fetchGlobalTagGroups();
             fetchVisibilityOptions();
             fetchProperties();
             if (activeTabText == 'vendor') {
@@ -169,6 +186,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             const rootNode = findInTree(categoriesPool, chain[0].id);
             if (rootNode) {
                 setSelectedParentCategory(rootNode);
+                fetchCategoryTags(rootNode.id);
 
                 if (chain.length >= 2) {
                     const subNode = findInTree(rootNode.subcategories || [], chain[1].id);
@@ -189,14 +207,18 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
 
     useEffect(() => {
         if (isEdit && contactData && visible) {
-            // Check if tags are objects (Contact type) or strings
+            // Pre-populate category tags in edit mode
             if (contactData.tags && Array.isArray(contactData.tags)) {
-                setTags(contactData.tags.map((t: any) => ({
-                    id: t.id,
-                    name: t.name
-                })));
+                setSelectedCategoryTagIds(contactData.tags.map((t: any) => t.id));
             } else {
-                setTags([]);
+                setSelectedCategoryTagIds([]);
+            }
+
+            // Pre-populate global tags in edit mode
+            if (contactData.global_tags && Array.isArray(contactData.global_tags)) {
+                setSelectedGlobalTagIds(contactData.global_tags.map((t: any) => t.id));
+            } else {
+                setSelectedGlobalTagIds([]);
             }
 
             // Split name if first_name/last_name not provided
@@ -216,13 +238,18 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                 category_name: contactData.category_name || '',
                 company: contactData.company || '',
                 email: contactData.email || '',
-                address: contactData.address || '',
+                address_line1: contactData.address_line1 || '',
+                city: contactData.city || '',
+                state: contactData.state || '',
+                zip_code: contactData.zip_code || '',
+                country: contactData.country || '',
                 emergency_contact: contactData.emergency_contact || '',
                 website: contactData.website || '',
-                notes: contactData.initial_note || '',
+                notes: contactData.notes || contactData.initial_note || '',
                 rating: contactData.rating ? Math.floor(Number(contactData.rating)).toString() : '',
                 logo_url: contactData.logo_url || null,
                 is_text_enabled: !!contactData.phone_number_text_enabled,
+                is_alternate_text_enabled: !!contactData.alternate_phone_number_text_enabled,
                 visibility_id: contactData.visibility_id?.toString() || '',
                 visibility_name: contactData.visibility_name || '',
             });
@@ -257,12 +284,18 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             }
 
             // Populate documents
-            if (contactData.documents) {
+            if (contactData.documents && Array.isArray(contactData.documents)) {
                 setSelectedDocuments(contactData.documents.map((d: any) => ({
                     uri: d.url || d.uri,
                     name: d.file_name || d.name,
                     mimeType: d.mime_type || d.type
                 })));
+            } else if (contactData.document_url) {
+                setSelectedDocuments([{
+                    uri: contactData.document_url,
+                    name: contactData.document_url.split('/').pop() || 'document.pdf',
+                    mimeType: 'application/pdf'
+                }]);
             } else {
                 setSelectedDocuments([]);
             }
@@ -278,15 +311,22 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                 email: '',
                 visibility_id: '',
                 visibility_name: '',
-                address: '',
+                address_line1: '',
+                city: '',
+                state: '',
+                zip_code: '',
+                country: '',
                 emergency_contact: '',
                 website: '',
                 notes: '',
                 rating: '',
                 logo_url: null,
                 is_text_enabled: false,
+                is_alternate_text_enabled: false,
             });
-            setTags([]);
+            setSelectedCategoryTagIds([]);
+            setCategoryTagGroups([]);
+            setExpandedCategoryGroups(new Set());
             setSelectedVisibilityIds([]);
             setSelectedVisibilityNames([]);
             setSelectedPropertyIds([]);
@@ -294,6 +334,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             setPersonalCategories([]);
             setSelectedDocuments([]);
             setErrors({});
+            setSelectedGlobalTagIds([]);
+            setExpandedGroups(new Set());
+            setShowGlobalTagDropdown(false);
+            setApiErrorModalVisible(false);
+            setApiErrorData(null);
             // Reset tab mount guard so next open skips the initial clear again
             isFirstTabMount.current = true;
         }
@@ -304,7 +349,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             const res = await apiGet(ApiConstants.VENDOR_CATEGORIES);
             if (res.status === 200 || res.status === 201) {
                 const data = res.data || [];
-                console.log("data in fetchCategories", JSON.stringify(data));
+                // console.log("data in fetchCategories", JSON.stringify(data));
 
                 setRawCategories(data);
             }
@@ -313,42 +358,9 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         }
     };
 
-    const fetchVendorCategories = async () => {
-        try {
-            const res = await apiGet(ApiConstants.VENDOR_PROFESSIONAL_CATEGORIES_SEED);
-            if (res.status === 200 || res.status === 201) {
-                const data = res.data.seeded;
-                // console.log("data", JSON.stringify(data));
-                if (Array.isArray(data)) {
-                    setVendorCategoriesData(data);
-                }
-            }
-        } catch (error: any) {
-            console.log('Error fetching vendor seed categories:', error?.message);
-            if (error?.response) {
-                console.log('Status:', error.response.status);
-                console.log('Response Data:', JSON.stringify(error.response.data, null, 2));
-                console.log('URL:', error.config?.url);
-                console.log('Method:', error.config?.method);
-            }
-        }
-    };
 
-    const fetchTags = async () => {
-        try {
-            const res = await apiGet(ApiConstants.VENDOR_TAGS);
-            // console.log("res in fetchTags", JSON.stringify(res));
-            if (res.status === 200 || res.status === 201) {
-                const formatted = (res?.data || []).map((item: any) => ({
-                    label: item.name || item.label,
-                    value: item.id?.toString() || item.value
-                }));
-                setApiTags(formatted);
-            }
-        } catch (error) {
-            console.error('Error fetching tags in modal:', error);
-        }
-    };
+
+
     const fetchProperties = async () => {
         try {
             const res = await apiGet(ApiConstants.PROPERTIES);
@@ -375,7 +387,153 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         }
     };
 
+    const fetchGlobalTagGroups = async () => {
+        try {
+            const res = await apiGet(ApiConstants.GLOBAL_TAG_GROUPS);
+            if (res.status === 200 || res.status === 201) {
+                setGlobalTagGroups(res.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching global tag groups in modal:', error);
+        }
+    };
 
+    const fetchCategoryTags = async (categoryId: string | number) => {
+        console.log("categoryId in fetchCategoryTags:", categoryId);
+
+        try {
+            const response = await apiGet(`${ApiConstants.VENDOR_TAGS}?category_id=${categoryId}`);
+            console.log("response.data in fetchCategoryTags:", JSON.stringify(response.data));
+
+            if (response && response.data) {
+                const tags = response.data.tags || [];
+                setCategoryTagGroups(tags);
+
+                // Expand all groups by default so options are immediately visible
+                if (tags.length > 0) {
+                    const allGroups = tags.map((t: any) => t.group);
+                    setExpandedCategoryGroups(new Set(allGroups));
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching category tags:', error);
+        }
+    };
+
+    const toggleGroupExpansion = (groupName: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupName)) {
+                next.delete(groupName);
+            } else {
+                next.add(groupName);
+            }
+            return next;
+        });
+    };
+
+    const toggleGlobalTag = (tagId: string | number) => {
+        setSelectedGlobalTagIds(prev => {
+            if (prev.includes(tagId)) {
+                return prev.filter(id => id !== tagId);
+            } else {
+                return [...prev, tagId];
+            }
+        });
+    };
+
+    const toggleCategoryTagGroupExpansion = (groupName: string) => {
+        setExpandedCategoryGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupName)) {
+                next.delete(groupName);
+            } else {
+                next.add(groupName);
+            }
+            return next;
+        });
+    };
+
+    const toggleCategoryTag = (tagId: string | number) => {
+        setSelectedCategoryTagIds(prev => (prev.includes(tagId) ? [] : [tagId]));
+    };
+
+    const renderGlobalTagsDropdown = () => {
+        if (isEdit) return null;
+        const selectedCount = selectedGlobalTagIds.length;
+
+        return (
+            <View style={styles.globalTagsSection}>
+                <Text style={styles.label}>Global Tags</Text>
+                <TouchableOpacity
+                    style={styles.globalTagsTrigger}
+                    onPress={() => {
+                        setShowVisibilityDropdown(false);
+                        setShowGlobalTagDropdown(!showGlobalTagDropdown);
+                    }}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.globalTagsTriggerText}>
+                        {selectedCount > 0 ? `Selected Global Tags (${selectedCount})` : 'Select Global Tags'}
+                    </Text>
+                    <Image
+                        source={showGlobalTagDropdown ? Icons.ic_up_arrow : Icons.ic_down_arrow}
+                        style={styles.arrowIcon}
+                    />
+                </TouchableOpacity>
+
+                {showGlobalTagDropdown && (
+                    <View style={styles.globalTagsDropdownContent}>
+                        {globalTagGroups.map((group, groupIdx) => {
+                            const isExpanded = expandedGroups.has(group.group);
+                            return (
+                                <View key={groupIdx} style={styles.groupWrapper}>
+                                    <TouchableOpacity
+                                        style={[styles.groupHeader, isExpanded && styles.expandedGroupHeader]}
+                                        onPress={() => toggleGroupExpansion(group.group)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.groupTitle, isExpanded && styles.activeGroupTitle]}>
+                                            {group.group} ({group.options?.length || 0})
+                                        </Text>
+                                        <Image
+                                            source={isExpanded ? Icons.ic_up_arrow : Icons.ic_down_arrow}
+                                            style={styles.groupChevron}
+                                        />
+                                    </TouchableOpacity>
+
+                                    {isExpanded && (
+                                        <View style={styles.optionsContainer}>
+                                            {group.options?.map((opt: any) => {
+                                                const isSelected = selectedGlobalTagIds.includes(opt.id);
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={opt.id}
+                                                        style={styles.optionRow}
+                                                        onPress={() => toggleGlobalTag(opt.id)}
+                                                        activeOpacity={0.6}
+                                                    >
+                                                        <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
+                                                            {isSelected && (
+                                                                <Image source={Icons.ic_checkbox_tick} style={styles.optionCheckboxTick} />
+                                                            )}
+                                                        </View>
+                                                        <Text style={[styles.optionLabel, isSelected && styles.selectedOptionLabel]}>
+                                                            {opt.name}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                    )}
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
+            </View>
+        );
+    };
 
     const handlePropertyInputChange = (field: string, value: any) => {
         setPropertyFormData(prev => ({ ...prev, [field]: value }));
@@ -493,25 +651,114 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         }
     };
 
-    const handleSelectTag = (tag: { label: string; value: string }) => {
-        if (!tags.find(t => t.id === tag.value)) {
-            const newTags = [...tags, { id: tag.value, name: tag.label }];
-            setTags(newTags);
+    const renderCategoryTagsDropdown = () => {
+        if (isEdit || !selectedParentCategory || !categoryTagGroups.length) return null;
 
-            // Clear tag error
-            if (errors.tags) {
-                setErrors(prev => {
-                    const updated = { ...prev };
-                    delete updated.tags;
-                    return updated;
-                });
-            }
-        }
-        setShowTagDropdown(false);
+        // Find the group that matches the selected parent category name
+        const matchingGroup = categoryTagGroups.find(
+            group => group.group?.trim().toLowerCase() === selectedParentCategory.name?.trim().toLowerCase()
+        );
+
+        // If no matching group found, we don't show the section to match screenshot logic
+        if (!matchingGroup) return null;
+
+        const isExpanded = expandedCategoryGroups.has(matchingGroup.group);
+        const options = matchingGroup.options || [];
+
+        return (
+            <View style={styles.inputContainer}>
+                <Text style={styles.categoryTagsLabel}>
+                    Category Tags for {selectedParentCategory.name.toUpperCase()}
+                </Text>
+                <View style={styles.categoryTagsBox}>
+                    <TouchableOpacity
+                        style={styles.categoryTagsHeader}
+                        onPress={() => toggleCategoryTagGroupExpansion(matchingGroup.group)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.categoryTagsGroupName}>{matchingGroup.group}</Text>
+                            <View style={styles.categoryTagCountBadge}>
+                                <Text style={styles.categoryTagCountText}>{options.length}</Text>
+                            </View>
+                        </View>
+                        <Image
+                            source={isExpanded ? Icons.ic_up_arrow : Icons.ic_down_arrow}
+                            style={styles.categoryTagsChevron}
+                        />
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                        <View style={styles.categoryTagsChipsRow}>
+                            {options.map((opt: any) => {
+                                const isSelected = selectedCategoryTagIds.includes(opt.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={opt.id}
+                                        style={[
+                                            styles.categoryTagChip,
+                                            isSelected && styles.activeCategoryTagChip,
+                                            isEdit && { opacity: 0.8 }
+                                        ]}
+                                        onPress={() => toggleCategoryTag(opt.id)}
+                                        disabled={isEdit}
+                                        activeOpacity={0.6}
+                                    >
+                                        <Text style={[
+                                            styles.categoryTagChipText,
+                                            isSelected && styles.activeCategoryTagChipText
+                                        ]}>
+                                            {opt.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
+                </View>
+            </View>
+        );
     };
 
-    const handleRemoveTag = (tagId: string | number) => {
-        setTags(tags.filter(tag => tag.id !== tagId));
+    const renderSelectedTagsEditView = () => {
+        if (!isEdit) return null;
+
+        const allSelectedTags: string[] = [];
+
+        // Get Category Tags names
+        categoryTagGroups.forEach(group => {
+            group.options?.forEach((opt: any) => {
+                if (selectedCategoryTagIds.includes(opt.id)) {
+                    allSelectedTags.push(opt.name);
+                }
+            });
+        });
+
+        // Get Global Tags names
+        globalTagGroups.forEach(group => {
+            group.options?.forEach((opt: any) => {
+                if (selectedGlobalTagIds.includes(opt.id)) {
+                    allSelectedTags.push(opt.name);
+                }
+            });
+        });
+
+        if (allSelectedTags.length === 0) return null;
+
+        return (
+            <View style={styles.editSectionContainer}>
+                <Text style={styles.editSectionLabel}>Selected Tags</Text>
+                <View style={styles.editTagsCard}>
+                    <View style={styles.editTagsContent}>
+                        {allSelectedTags.map((tagName, idx) => (
+                            <View key={idx} style={styles.editTagChip}>
+                                <Text style={styles.editTagText}>{tagName}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+            </View>
+        );
     };
 
     const handleLogoPick = async () => {
@@ -547,6 +794,15 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         setSelectedParentCategory(category);
         setSelectedSubCategory(null);
         setSelectedDetailedCategory(null);
+
+        // Fetch tags for the selected category
+        if (category && category.id) {
+            fetchCategoryTags(category.id);
+        } else {
+            setCategoryTagGroups([]);
+        }
+        setSelectedCategoryTagIds([]);
+
         // Do not update formData.category_id yet if it has subcategories
         if (!category.has_subcategories) {
             handleInputChange('category_id', category.id.toString());
@@ -591,6 +847,27 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     };
 
     const renderCategorySelection = () => {
+        if (isEdit) {
+            const categoryName = selectedDetailedCategory?.name || selectedSubCategory?.name || selectedParentCategory?.name || formData.category_name;
+            if (!categoryName) return null;
+
+            return (
+                <View style={styles.editSectionContainer}>
+                    <Text style={styles.editSectionLabel}>Category</Text>
+                    <View style={styles.editCard}>
+                        <View style={styles.editIconContainer}>
+                            <MaterialIcons name="business" size={16} color="#0F343F" />
+                        </View>
+                        <View style={{ flex: 1, justifyContent: 'center' }}>
+                            <Text style={styles.editCategoryName} numberOfLines={1}>
+                                {categoryName}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+            );
+        }
+
         const categoriesToRender = Array.isArray(rawCategories) ? rawCategories : [];
 
         return (
@@ -608,9 +885,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     style={[
                                         styles.categoryGridItem,
                                         isLastItem && isOddCount && styles.fullWidthGridItem,
-                                        selectedParentCategory?.id === cat.id && styles.selectedCategoryGridItem
+                                        selectedParentCategory?.id === cat.id && styles.selectedCategoryGridItem,
+                                        isEdit && { opacity: 0.8 }
                                     ]}
                                     onPress={() => handleParentCategorySelect(cat)}
+                                    disabled={isEdit}
                                 >
                                     <Text style={[
                                         styles.categoryGridText,
@@ -641,9 +920,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                         key={idx}
                                         style={[
                                             styles.subCatChip,
-                                            selectedSubCategory?.id === sub.id && styles.activeSubCatChip
+                                            selectedSubCategory?.id === sub.id && styles.activeSubCatChip,
+                                            isEdit && { opacity: 0.8 }
                                         ]}
                                         onPress={() => handleSubCategorySelect(sub)}
+                                        disabled={isEdit}
                                     >
                                         <Text style={[
                                             styles.subCatChipText,
@@ -663,9 +944,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                             key={idx}
                                             style={[
                                                 styles.detailedCatChip,
-                                                selectedDetailedCategory?.id === detailed.id && styles.activeDetailedCatChip
+                                                selectedDetailedCategory?.id === detailed.id && styles.activeDetailedCatChip,
+                                                isEdit && { opacity: 0.8 }
                                             ]}
                                             onPress={() => handleDetailedCategorySelect(detailed)}
+                                            disabled={isEdit}
                                         >
                                             <Text style={[
                                                 styles.detailedCatChipText,
@@ -706,12 +989,12 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         try {
             const result: any = await DocumentPicker.getDocumentAsync({
                 type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/*'],
-                multiple: true,
+                multiple: false,
                 copyToCacheDirectory: true,
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
-                setSelectedDocuments(prev => [...prev, ...result.assets]);
+                setSelectedDocuments([result.assets[0]]);
             }
         } catch (err) {
             console.error('Error picking document:', err);
@@ -747,7 +1030,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             }
         }
 
-        if (tags.length === 0) newErrors.tags = 'At least one tag is required';
+        // if (tags.length === 0) newErrors.tags = 'At least one tag is required';
 
         if (!formData.phone_number.trim()) {
             newErrors.phone_number = 'Phone number is required';
@@ -773,10 +1056,20 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         // If in edit mode, just pass the data to parent without making API call
         // Parent (contact-details) will handle the PATCH API call
         if (isEdit) {
+            const fullAddress = [
+                formData.address_line1,
+                formData.city,
+                formData.state,
+                formData.zip_code,
+                formData.country
+            ].filter(Boolean).join(', ');
+
             onSave({
                 ...formData,
+                address: fullAddress,
                 category_id: finalCategoryId,
-                tags: tags,
+                tag_ids: selectedCategoryTagIds,
+                global_tag_ids: selectedGlobalTagIds,
                 property_ids: selectedPropertyIds,
                 visibility_ids: selectedVisibilityIds,
                 visibilities: selectedVisibilityIds.map(id => ({
@@ -790,30 +1083,41 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         // Create mode - make API call to create new contact
         try {
             setLoading(true);
-            console.log('formData.is_text_enabled', formData.is_text_enabled)
             const formDataObj = new FormData();
 
             // Common fields for both tabs
-            formDataObj.append('name', `${formData.first_name} ${formData.last_name}`.trim());
+            formDataObj.append('name', `${formData.first_name} ${formData.last_name}`.trim() || formData.company);
+            formDataObj.append('first_name', formData.first_name || formData.company);
+            formDataObj.append('last_name', formData.last_name);
             formDataObj.append('email', formData.email);
             formDataObj.append('phone_number', formData.phone_number);
-            formDataObj.append('address', formData.address);
-            formDataObj.append('phone_number_text_enabled', String(formData.is_text_enabled));
+            formDataObj.append('address_line1', formData.address_line1);
+            formDataObj.append('city', formData.city);
+            formDataObj.append('state', formData.state);
+            formDataObj.append('zip_code', formData.zip_code);
+            formDataObj.append('country', formData.country);
 
-            // Send visibility IDs
-            selectedVisibilityIds.forEach(id => {
-                formDataObj.append('visibility', id.toString());
+            // Concatenated address string
+            const fullAddress = [
+                formData.address_line1,
+                formData.city,
+                formData.state,
+                formData.zip_code,
+                formData.country
+            ].filter(Boolean).join(', ');
+            formDataObj.append('address', fullAddress);
+            formDataObj.append('phone_number_text_enabled', String(formData.is_text_enabled));
+            formDataObj.append('alternate_phone_number_text_enabled', String(formData.is_alternate_text_enabled));
+
+            // Send visibility names (lowercase) per screenshot (e.g., 'emergency')
+            selectedVisibilityNames.forEach(name => {
+                formDataObj.append('visibility', name.toLowerCase());
             });
 
-            formDataObj.append('initial_note', formData.notes);
+            // Send notes and properties (common)
+            formDataObj.append('notes', formData.notes);
             selectedPropertyIds.forEach(id => {
                 formDataObj.append('property_ids', id.toString());
-            });
-
-            // Send tag IDs individually for vendors
-            const tagIds = tags.map(t => Number(t.id)).filter(id => !isNaN(id));
-            tagIds.forEach(id => {
-                formDataObj.append('tag_ids', id.toString());
             });
 
             // Common file uploads
@@ -826,25 +1130,59 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             }
 
             if (activeTab === 'personal') {
-                // Personal contact specific fields
-                formDataObj.append('category', finalCategoryId);
+                // Personal contact specific hierarchical category IDs as per screenshot
+                if (selectedParentCategory?.id) {
+                    formDataObj.append('category_ids', selectedParentCategory.id.toString());
+                }
+                if (selectedSubCategory?.id) {
+                    formDataObj.append('subcategory_ids', selectedSubCategory.id.toString());
+                }
+                // if (selectedDetailedCategory?.id) {
+                //     formDataObj.append('detailed_category_ids', selectedDetailedCategory.id.toString());
+                // }
+
+                // Personal use 'tags' and 'global_tags' per your screenshot
+                selectedCategoryTagIds.forEach(id => {
+                    formDataObj.append('tags', id.toString());
+                });
+                selectedGlobalTagIds.forEach(id => {
+                    formDataObj.append('global_tags', id.toString());
+                });
             } else {
                 // Vendor / Professional specific fields
                 formDataObj.append('emergency_contact', formData.emergency_contact);
                 formDataObj.append('website', formData.website);
-                formDataObj.append('category', finalCategoryId);
+                // In screenshot, 'category' is the parent ID and 'subcategory_ids' is the sub ID
+                formDataObj.append('category', selectedParentCategory?.id?.toString() || finalCategoryId);
+
+                // Hierarchical IDs
+                if (selectedSubCategory?.id) {
+                    formDataObj.append('subcategory_ids', selectedSubCategory.id.toString());
+                }
+                if (selectedParentCategory?.id) {
+                    formDataObj.append('category_ids', selectedParentCategory.id.toString());
+                }
+
                 formDataObj.append('company', formData.company);
                 formDataObj.append('rating', formData.rating);
+
+                // Vendors use 'tags' and 'global_tags' per screenshot
+                selectedCategoryTagIds.forEach(id => {
+                    formDataObj.append('tags', id.toString());
+                });
+                selectedGlobalTagIds.forEach(id => {
+                    formDataObj.append('global_tags', id.toString());
+                });
                 // Multiple documents
-                // selectedDocuments.forEach((doc, index) => {
-                //     if (doc.uri) {
-                //         formDataObj.append('docurl', {
-                //             uri: doc.uri,
-                //             name: doc.name || `document_${index}.pdf`,
-                //             type: doc.mimeType || 'application/pdf',
-                //         } as any);
-                //     }
-                // });
+                selectedDocuments.forEach((doc, index) => {
+                    if (doc.uri) {
+                        formDataObj.append('document', {
+                            uri: doc.uri,
+                            name: doc.name || `document_${index}.pdf`,
+                            type: doc.mimeType || 'application/pdf',
+                        } as any);
+                    }
+                });
             }
             console.log("formDataObj in add contacts", JSON.stringify(formDataObj));
 
@@ -857,12 +1195,13 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                 // Pass the actual form data object with tags to parent
                 onSave({
                     ...formData,
-                    tags: tags,
-                    visibility_ids: selectedVisibilityIds,
+                    tag_ids: selectedCategoryTagIds,
+                    global_tag_ids: selectedGlobalTagIds,
                     visibilities: selectedVisibilityIds.map(id => ({
                         id,
                         name: selectedVisibilityNames[selectedVisibilityIds.indexOf(id)]
-                    }))
+                    })),
+                    contactType: activeTab
                 });
                 Toast.show({
                     type: 'success',
@@ -881,12 +1220,15 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             console.error('Error saving contact:', error);
             if (error?.response?.data) {
                 console.error('API Error Details:', JSON.stringify(error.response.data, null, 2));
+                setApiErrorData(error.response.data);
+                setApiErrorModalVisible(true);
+            } else {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: error?.message || 'An unexpected error occurred',
+                });
             }
-            Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: error?.response?.data?.message || (error?.response?.data && typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error?.response?.data)) || error?.message || 'An unexpected error occurred',
-            });
         } finally {
             setLoading(false);
         }
@@ -899,7 +1241,10 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.modalOverlay}
+            >
                 <View style={styles.modalContainer}>
                     {/* Header */}
                     <View style={styles.header}>
@@ -1129,7 +1474,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     activeOpacity={0.7}
                                 >
                                     <View style={[styles.checkboxBase, formData.is_text_enabled && styles.checkboxSelected]}>
-                                        {formData.is_text_enabled && <Image source={Icons.ic_check} style={styles.checkboxIcon} />}
+                                        {formData.is_text_enabled && <Image source={Icons.ic_checkbox_tick} style={styles.checkboxIcon} />}
                                     </View>
                                     <Text style={styles.checkboxLabel}>Text Enabled</Text>
                                 </TouchableOpacity>
@@ -1141,7 +1486,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     onChangeText={(t) => handleInputChange('email', t)}
                                     keyboardType="email-address"
                                     autoCapitalize="none"
-                                    leftIcon={Icons.ic_mail}
+                                    leftIcon={Icons.ic_mail2}
                                     placeholder='Enter email address'
                                     error={errors.email}
                                 />
@@ -1175,17 +1520,14 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                                             key={idx}
                                                             style={styles.dropdownItem}
                                                             onPress={() => {
-                                                                let newIds = [...selectedVisibilityIds];
-                                                                let newNames = [...selectedVisibilityNames];
                                                                 if (isSelected) {
-                                                                    newIds = newIds.filter(id => id !== opt.id.toString());
-                                                                    newNames = newNames.filter(name => name !== opt.name);
+                                                                    setSelectedVisibilityIds([]);
+                                                                    setSelectedVisibilityNames([]);
                                                                 } else {
-                                                                    newIds.push(opt.id.toString());
-                                                                    newNames.push(opt.name);
+                                                                    setSelectedVisibilityIds([opt.id.toString()]);
+                                                                    setSelectedVisibilityNames([opt.name]);
+                                                                    setShowVisibilityDropdown(false);
                                                                 }
-                                                                setSelectedVisibilityIds(newIds);
-                                                                setSelectedVisibilityNames(newNames);
                                                                 // Clear error
                                                                 if (errors.visibility_id) {
                                                                     setErrors(prev => {
@@ -1208,64 +1550,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     )}
                                 </View>
 
-                                {/* Tags Dropdown */}
-                                <View style={[styles.inputContainer, { zIndex: 900 }]}>
-                                    <Text style={styles.label}>Tags</Text>
-                                    <TouchableOpacity
-                                        style={styles.dropdownButton}
-                                        onPress={() => {
-                                            setShowVisibilityDropdown(false);
-                                            setShowTagDropdown(!showTagDropdown);
-                                        }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={[styles.inputText, { color: ColorConstants.GRAY }]}>Select Tags</Text>
-                                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                                    </TouchableOpacity>
-                                    {errors.tags ? <Text style={styles.dropdownErrorText}>{errors.tags}</Text> : null}
+                                {/* Global Tags Dropdown */}
+                                {renderGlobalTagsDropdown()}
 
-                                    {showTagDropdown && (
-                                        <View style={styles.dropdownList}>
-                                            <ScrollView
-                                                style={styles.dropdownScroll}
-                                                nestedScrollEnabled={true}
-                                                showsVerticalScrollIndicator={true}
-                                            >
-                                                {apiTags.filter(opt => !tags.find(t => t.id.toString() === opt.value)).map((opt, idx) => (
-                                                    <TouchableOpacity
-                                                        key={idx}
-                                                        style={styles.dropdownItem}
-                                                        onPress={() => handleSelectTag(opt)}
-                                                    >
-                                                        <Text style={styles.dropdownItemText}>{opt.label}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {apiTags.filter(opt => !tags.find(t => t.id.toString() === opt.value)).length === 0 && (
-                                                    <View style={styles.dropdownItem}>
-                                                        <Text style={[styles.dropdownItemText, { color: ColorConstants.GRAY }]}>No more tags available</Text>
-                                                    </View>
-                                                )}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                </View>
 
-                                {/* Display Tags */}
-                                {tags.length > 0 && (
-                                    <View style={styles.tagsContainer}>
-                                        {tags.map((tag, index) => (
-                                            <View key={index} style={styles.tagChip}>
-                                                <Text style={styles.tagText}>{tag.name}</Text>
-                                                <TouchableOpacity
-                                                    onPress={() => handleRemoveTag(tag.id)}
-                                                    style={styles.removeTagButton}
-                                                >
-                                                    <Image source={Icons.ic_cross} style={styles.removeTagIcon} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
+
 
                                 {/* Tagged Properties Section */}
                                 <View style={styles.taggedPropertiesSection}>
@@ -1300,7 +1589,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                                         >
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                                                                 <Image
-                                                                    source={isSelected ? Icons.ic_checkbox_selected : Icons.ic_checkbox_black}
+                                                                    source={isSelected ? Icons.ic_checkbox_tick : Icons.ic_checkbox_black}
                                                                     style={{ width: 18, height: 18, marginRight: 10, tintColor: isSelected ? ColorConstants.PRIMARY_BROWN : '#E0E0E0' }}
                                                                 />
                                                                 <Text style={styles.propertyName}>{prop.name}</Text>
@@ -1313,18 +1602,57 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     </View>
                                 </View>
 
-                                {/* Address Field */}
                                 <CustomTextInput
-                                    label="Address (Optional)"
-                                    value={formData.address}
-                                    onChangeText={(t) => handleInputChange('address', t)}
-                                    placeholder="Enter Address"
-                                    multiline
-                                    error={errors.address}
+                                    label="Address Line 1"
+                                    value={formData.address_line1}
+                                    onChangeText={(t) => handleInputChange('address_line1', t)}
+                                    placeholder='Enter your address'
                                 />
 
+                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="City"
+                                            value={formData.city}
+                                            onChangeText={(t) => handleInputChange('city', t)}
+                                            placeholder='Enter City'
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="State"
+                                            value={formData.state}
+                                            onChangeText={(t) => handleInputChange('state', t)}
+                                            placeholder='Enter State'
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="Zip Code"
+                                            value={formData.zip_code}
+                                            onChangeText={(t) => handleInputChange('zip_code', t)}
+                                            placeholder='Enter zipcode'
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="Country"
+                                            value={formData.country}
+                                            onChangeText={(t) => handleInputChange('country', t)}
+                                            placeholder='Enter Country'
+                                        />
+                                    </View>
+                                </View>
                                 {/* Hierarchical Category Selection */}
                                 {renderCategorySelection()}
+
+                                {isEdit && renderSelectedTagsEditView()}
+
+                                {/* Category Tags Dropdown */}
+                                {renderCategoryTagsDropdown()}
 
                                 {/* Upload Detail Image (Photo) */}
                                 <View style={styles.inputContainer}>
@@ -1351,7 +1679,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                         </View>
                                     ) : (
                                         <TouchableOpacity style={styles.uploadArea} onPress={handleLogoPick} activeOpacity={0.7}>
-                                            <Image source={Icons.ic_upload} style={styles.uploadIcon} />
+                                            <Image source={Icons.ic_upload2} style={styles.uploadIcon} />
                                             <Text style={styles.uploadTitle}>Upload Photo</Text>
                                             <Text style={styles.uploadSubtitle}>Select here to choose image</Text>
                                         </TouchableOpacity>
@@ -1420,7 +1748,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     activeOpacity={0.7}
                                 >
                                     <View style={[styles.checkboxBase, formData.is_text_enabled && styles.checkboxSelected]}>
-                                        {formData.is_text_enabled && <Image source={Icons.ic_check} style={styles.checkboxIcon} />}
+                                        {formData.is_text_enabled && <Image source={Icons.ic_checkbox_tick} style={styles.checkboxIcon} />}
                                     </View>
                                     <Text style={styles.checkboxLabel}>Text Enabled</Text>
                                 </TouchableOpacity>
@@ -1432,7 +1760,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     onChangeText={(t) => handleInputChange('email', t)}
                                     keyboardType="email-address"
                                     autoCapitalize="none"
-                                    leftIcon={Icons.ic_mail}
+                                    leftIcon={Icons.ic_mail2}
                                     placeholder='Enter email address'
                                     error={errors.email}
                                 />
@@ -1466,17 +1794,17 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                                             key={idx}
                                                             style={styles.dropdownItem}
                                                             onPress={() => {
-                                                                let newIds = [...selectedVisibilityIds];
-                                                                let newNames = [...selectedVisibilityNames];
                                                                 if (isSelected) {
-                                                                    newIds = newIds.filter(id => id !== opt.id.toString());
-                                                                    newNames = newNames.filter(name => name !== opt.name);
+                                                                    // Deselect if already selected
+                                                                    setSelectedVisibilityIds([]);
+                                                                    setSelectedVisibilityNames([]);
                                                                 } else {
-                                                                    newIds.push(opt.id.toString());
-                                                                    newNames.push(opt.name);
+                                                                    // Single selection: replace with new value
+                                                                    setSelectedVisibilityIds([opt.id.toString()]);
+                                                                    setSelectedVisibilityNames([opt.name]);
+                                                                    // Close dropdown after selection
+                                                                    setShowVisibilityDropdown(false);
                                                                 }
-                                                                setSelectedVisibilityIds(newIds);
-                                                                setSelectedVisibilityNames(newNames);
                                                                 // Clear error
                                                                 if (errors.visibility_id) {
                                                                     setErrors(prev => {
@@ -1499,64 +1827,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     )}
                                 </View>
 
-                                {/* Tags Dropdown */}
-                                <View style={[styles.inputContainer, { zIndex: 900 }]}>
-                                    <Text style={styles.label}>Tags</Text>
-                                    <TouchableOpacity
-                                        style={styles.dropdownButton}
-                                        onPress={() => {
-                                            setShowVisibilityDropdown(false);
-                                            setShowTagDropdown(!showTagDropdown);
-                                        }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={[styles.inputText, { color: ColorConstants.GRAY }]}>Select Tags</Text>
-                                        <Image source={Icons.ic_down_arrow} style={styles.arrowIcon} />
-                                    </TouchableOpacity>
-                                    {errors.tags ? <Text style={styles.dropdownErrorText}>{errors.tags}</Text> : null}
-
-                                    {showTagDropdown && (
-                                        <View style={styles.dropdownList}>
-                                            <ScrollView
-                                                style={styles.dropdownScroll}
-                                                nestedScrollEnabled={true}
-                                                showsVerticalScrollIndicator={true}
-                                            >
-                                                {apiTags.filter(opt => !tags.find(t => t.id.toString() === opt.value)).map((opt, idx) => (
-                                                    <TouchableOpacity
-                                                        key={idx}
-                                                        style={styles.dropdownItem}
-                                                        onPress={() => handleSelectTag(opt)}
-                                                    >
-                                                        <Text style={styles.dropdownItemText}>{opt.label}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {apiTags.filter(opt => !tags.find(t => t.id.toString() === opt.value)).length === 0 && (
-                                                    <View style={styles.dropdownItem}>
-                                                        <Text style={[styles.dropdownItemText, { color: ColorConstants.GRAY }]}>No more tags available</Text>
-                                                    </View>
-                                                )}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                </View>
-
-                                {/* Display Tags */}
-                                {tags.length > 0 && (
-                                    <View style={styles.tagsContainer}>
-                                        {tags.map((tag, index) => (
-                                            <View key={index} style={styles.tagChip}>
-                                                <Text style={styles.tagText}>{tag.name}</Text>
-                                                <TouchableOpacity
-                                                    onPress={() => handleRemoveTag(tag.id)}
-                                                    style={styles.removeTagButton}
-                                                >
-                                                    <Image source={Icons.ic_cross} style={styles.removeTagIcon} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
+                                {/* Global Tags Dropdown */}
+                                {renderGlobalTagsDropdown()}
 
                                 {/* Tagged Properties Section */}
                                 <View style={styles.taggedPropertiesSection}>
@@ -1591,7 +1863,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                                         >
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                                                                 <Image
-                                                                    source={isSelected ? Icons.ic_checkbox_selected : Icons.ic_checkbox_black}
+                                                                    source={isSelected ? Icons.ic_checkbox_tick : Icons.ic_checkbox_black}
                                                                     style={{ width: 18, height: 18, marginRight: 10, tintColor: isSelected ? ColorConstants.PRIMARY_BROWN : '#E0E0E0' }}
                                                                 />
                                                                 <Text style={styles.propertyName}>{prop.name}</Text>
@@ -1603,16 +1875,50 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                         </ScrollView>
                                     </View>
                                 </View>
-
-                                {/* Address Field */}
                                 <CustomTextInput
-                                    label="Address (Optional)"
-                                    value={formData.address}
-                                    onChangeText={(t) => handleInputChange('address', t)}
-                                    placeholder="Enter Address"
-                                    multiline
-                                    error={errors.address}
+                                    label="Address Line 1"
+                                    value={formData.address_line1}
+                                    onChangeText={(t) => handleInputChange('address_line1', t)}
+                                    placeholder='Enter your address'
                                 />
+
+                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="City"
+                                            value={formData.city}
+                                            onChangeText={(t) => handleInputChange('city', t)}
+                                            placeholder='Enter City'
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="State"
+                                            value={formData.state}
+                                            onChangeText={(t) => handleInputChange('state', t)}
+                                            placeholder='Enter State'
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="Zip Code"
+                                            value={formData.zip_code}
+                                            onChangeText={(t) => handleInputChange('zip_code', t)}
+                                            placeholder='Enter zipcode'
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <CustomTextInput
+                                            label="Country"
+                                            value={formData.country}
+                                            onChangeText={(t) => handleInputChange('country', t)}
+                                            placeholder='Enter Country'
+                                        />
+                                    </View>
+                                </View>
 
                                 {/* Emergency Number */}
                                 <CustomTextInput
@@ -1624,6 +1930,17 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                     maxLength={10}
                                     error={errors.emergency_contact}
                                 />
+
+                                <TouchableOpacity
+                                    style={styles.checkboxWrapper}
+                                    onPress={() => handleInputChange('is_alternate_text_enabled', !formData.is_alternate_text_enabled)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[styles.checkboxBase, formData.is_alternate_text_enabled && styles.checkboxSelected]}>
+                                        {formData.is_alternate_text_enabled && <Image source={Icons.ic_checkbox_tick} style={styles.checkboxIcon} />}
+                                    </View>
+                                    <Text style={styles.checkboxLabel}>Text Enabled</Text>
+                                </TouchableOpacity>
 
                                 {/* Website */}
                                 <CustomTextInput
@@ -1637,6 +1954,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
 
                                 {/* Hierarchical Category Selection */}
                                 {renderCategorySelection()}
+
+                                {isEdit && renderSelectedTagsEditView()}
+
+                                {/* Category Tags Dropdown */}
+                                {renderCategoryTagsDropdown()}
 
                                 {/* Rating */}
                                 <View style={styles.inputContainer}>
@@ -1692,7 +2014,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                         </View>
                                     ) : (
                                         <TouchableOpacity style={styles.uploadArea} onPress={handleLogoPick} activeOpacity={0.7}>
-                                            <Image source={Icons.ic_upload} style={styles.uploadIcon} />
+                                            <Image source={Icons.ic_upload2} style={styles.uploadIcon} />
                                             <Text style={styles.uploadTitle}>Upload Logo</Text>
                                             <Text style={styles.uploadSubtitle}>Drag and drop or select</Text>
                                         </TouchableOpacity>
@@ -1700,32 +2022,34 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                 </View>
 
                                 {/* Documents Section */}
-                                <View style={styles.inputContainer}>
-                                    <Text style={styles.label}>Documents (Optional)</Text>
-                                    <View style={styles.uploadAreaContainer}>
-                                        <TouchableOpacity style={styles.uploadArea} onPress={handleDocumentPick} activeOpacity={0.7}>
-                                            <Image source={Icons.ic_doc} style={styles.uploadIcon} />
-                                            <Text style={styles.uploadTitle}>Upload Documents</Text>
-                                            <Text style={styles.uploadSubtitle}>PDF, Word or Images</Text>
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {selectedDocuments.length > 0 && (
-                                        <View style={styles.documentList}>
-                                            {selectedDocuments.map((doc, index) => (
-                                                <View key={index} style={styles.documentItem}>
-                                                    <View style={styles.documentInfo}>
-                                                        <MaterialIcons name="insert-drive-file" size={20} color={ColorConstants.PRIMARY_BROWN} />
-                                                        <Text style={styles.documentName} numberOfLines={1}>{doc.name}</Text>
-                                                    </View>
-                                                    <TouchableOpacity onPress={() => handleRemoveDocument(index)}>
-                                                        <Image source={Icons.ic_cross} style={styles.removeDocIcon} />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            ))}
+                                {!isEdit && (
+                                    <View style={styles.inputContainer}>
+                                        <Text style={styles.label}>Documents (Optional)</Text>
+                                        <View style={styles.uploadAreaContainer}>
+                                            <TouchableOpacity style={styles.uploadArea} onPress={handleDocumentPick} activeOpacity={0.7}>
+                                                <Image source={Icons.ic_doc2} style={styles.uploadIcon} />
+                                                <Text style={styles.uploadTitle}>Upload Documents</Text>
+                                                <Text style={styles.uploadSubtitle}>PDF, Word or Images</Text>
+                                            </TouchableOpacity>
                                         </View>
-                                    )}
-                                </View>
+
+                                        {selectedDocuments.length > 0 && (
+                                            <View style={styles.documentList}>
+                                                {selectedDocuments.map((doc, index) => (
+                                                    <View key={index} style={styles.documentItem}>
+                                                        <View style={styles.documentInfo}>
+                                                            <MaterialIcons name="insert-drive-file" size={20} color={ColorConstants.PRIMARY_BROWN} />
+                                                            <Text style={styles.documentName} numberOfLines={1}>{doc.name}</Text>
+                                                        </View>
+                                                        <TouchableOpacity onPress={() => handleRemoveDocument(index)}>
+                                                            <Image source={Icons.ic_cross} style={styles.removeDocIcon} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
 
                                 {/* Notes */}
                                 <CustomTextInput
@@ -1739,25 +2063,29 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                                 />
                             </>
                         )}
+                        {/* Footer Actions */}
+                        <View style={styles.footer}>
+                            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.createButton, loading && { opacity: 0.7 }]}
+                                onPress={handleSave}
+                                disabled={loading}
+                            >
+                                <Text style={styles.createButtonText}>
+                                    {loading ? 'Processing...' : (isEdit ? 'Update Contact' : 'Create Contact')}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </ScrollView>
-
-                    {/* Footer Actions */}
-                    <View style={styles.footer}>
-                        <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.createButton, loading && { opacity: 0.7 }]}
-                            onPress={handleSave}
-                            disabled={loading}
-                        >
-                            <Text style={styles.createButtonText}>
-                                {loading ? 'Processing...' : (isEdit ? 'Update Contact' : 'Create Contact')}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
+            <ApiErrorModal
+                visible={apiErrorModalVisible}
+                errorData={apiErrorData}
+                onClose={() => setApiErrorModalVisible(false)}
+            />
         </Modal>
     );
 };
@@ -1773,7 +2101,7 @@ const styles = StyleSheet.create({
     modalContainer: {
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 16,
-        maxHeight: '90%',
+        maxHeight: Dimensions.get('window').height * 0.9,
         overflow: 'hidden'
     },
     header: {
@@ -1822,11 +2150,7 @@ const styles = StyleSheet.create({
         color: ColorConstants.BLACK2,
         marginBottom: 8
     },
-    emailIcon: {
-        height: 14,
-        width: 14,
-        resizeMode: 'contain'
-    },
+
     dropdownButton: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -2122,8 +2446,8 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         alignItems: 'center',
         marginTop: 10,
-        marginHorizontal: 20,
-        marginBottom: 20
+        // marginHorizontal: 20,
+        marginBottom: 10
     },
     cancelButton: {
         paddingVertical: 8,
@@ -2283,7 +2607,7 @@ const styles = StyleSheet.create({
     },
     categoryGridText: {
         fontFamily: Fonts.ManropeMedium,
-        fontSize: 13,
+        fontSize: 11,
         color: '#374151',
     },
     selectedCategoryGridText: {
@@ -2296,11 +2620,10 @@ const styles = StyleSheet.create({
     },
 
     subcategoryWrapper: {
-        marginTop: 20,
     },
     subcategoryTitle: {
         fontFamily: Fonts.ManropeSemiBold,
-        fontSize: 16,
+        fontSize: 14,
         color: '#1F2937',
         marginBottom: 12,
     },
@@ -2332,7 +2655,7 @@ const styles = StyleSheet.create({
     },
     subCatChipText: {
         fontFamily: Fonts.ManropeMedium,
-        fontSize: 14,
+        fontSize: 12,
         color: '#4B5563',
     },
     activeSubCatChipText: {
@@ -2390,8 +2713,8 @@ const styles = StyleSheet.create({
         borderColor: ColorConstants.PRIMARY_BROWN,
     },
     checkboxIcon: {
-        width: 14,
-        height: 14,
+        width: 20,
+        height: 20,
         tintColor: ColorConstants.PRIMARY_BROWN,
     },
     checkboxLabel: {
@@ -2441,6 +2764,242 @@ const styles = StyleSheet.create({
         width: 16,
         height: 16,
         tintColor: ColorConstants.GRAY,
+    },
+
+    // Global Tags Styles
+    globalTagsSection: {
+        marginBottom: 20,
+    },
+    globalTagsTrigger: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        backgroundColor: ColorConstants.WHITE,
+    },
+    globalTagsTriggerText: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 13,
+        color: '#4B5563',
+    },
+    globalTagsDropdownContent: {
+        marginTop: 4,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        backgroundColor: ColorConstants.WHITE,
+        overflow: 'hidden',
+    },
+    groupWrapper: {
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    groupHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        backgroundColor: '#F9FAFB',
+    },
+    expandedGroupHeader: {
+        backgroundColor: ColorConstants.WHITE,
+    },
+    groupTitle: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 12,
+        color: '#4B5563',
+        letterSpacing: 0.5,
+    },
+    activeGroupTitle: {
+        color: '#0F343F', // Darker font for expanded group
+    },
+    groupChevron: {
+        width: 12,
+        height: 12,
+        tintColor: '#9CA3AF',
+        resizeMode: 'contain'
+    },
+    optionsContainer: {
+        paddingBottom: 8,
+    },
+    optionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        gap: 12,
+    },
+    optionCheckbox: {
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        borderWidth: 1.5,
+        borderColor: '#D1D5DB',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    optionCheckboxSelected: {
+        backgroundColor: ColorConstants.WHITE,
+        borderColor: '#D1D5DB',
+    },
+    optionCheckboxTick: {
+        width: 20,
+        height: 20,
+        tintColor: ColorConstants.PRIMARY_BROWN,
+    },
+    optionLabel: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: '#4B5563',
+    },
+    selectedOptionLabel: {
+        color: '#111827',
+    },
+
+    // New Category Tags Styles to match screenshot
+    categoryTagsLabel: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: '#4B5563',
+        marginBottom: 10,
+        letterSpacing: 0.5,
+    },
+    categoryTagsBox: {
+        backgroundColor: ColorConstants.WHITE,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        overflow: 'hidden',
+        marginBottom: 20,
+    },
+    categoryTagsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    categoryTagsGroupName: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 16,
+        color: '#0F343F',
+    },
+    categoryTagCountBadge: {
+        backgroundColor: '#F3F4F6',
+        borderRadius: 20,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        marginLeft: 10,
+    },
+    categoryTagCountText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 12,
+        color: '#6B7280',
+    },
+    categoryTagsChevron: {
+        width: 12,
+        height: 12,
+        tintColor: '#9CA3AF',
+        resizeMode: 'contain',
+    },
+    categoryTagsChipsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        padding: 16,
+        paddingTop: 16, // Fixed: Added padding so chips don't touch the line
+        gap: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#F3F4F6',
+    },
+    categoryTagChip: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: ColorConstants.WHITE,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    activeCategoryTagChip: {
+        backgroundColor: ColorConstants.PRIMARY_BROWN,
+        borderColor: ColorConstants.PRIMARY_BROWN,
+    },
+    categoryTagChipText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 11,
+        color: '#4B5563',
+    },
+    activeCategoryTagChipText: {
+        color: ColorConstants.WHITE,
+        fontFamily: Fonts.ManropeBold,
+    },
+
+    // New Edit View Styles
+    editSectionContainer: {
+        marginBottom: 20,
+    },
+    editSectionLabel: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: ColorConstants.BLACK2,
+        marginBottom: 6,
+    },
+    editCard: {
+        backgroundColor: ColorConstants.WHITE,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    editIconContainer: {
+        width: 30,
+        height: 30,
+        borderRadius: 24,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    editIcon: {
+        width: 24,
+        height: 24,
+        tintColor: '#0F343F',
+    },
+    editCategoryName: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 14,
+        color: '#0F343F',
+        flex: 1,
+        marginTop: 4
+    },
+    editTagsCard: {
+        backgroundColor: ColorConstants.WHITE,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        padding: 12,
+    },
+    editTagsContent: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    editTagChip: {
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 9,
+        paddingVertical: 4,
+        borderRadius: 16,
+    },
+    editTagText: {
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 12,
+        color: ColorConstants.DARK_CYAN,
     },
 });
 

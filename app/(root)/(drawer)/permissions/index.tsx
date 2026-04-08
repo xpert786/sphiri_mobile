@@ -63,12 +63,36 @@ interface ComplianceData {
     compliance_standards: ComplianceStandard[];
 }
 
+const STATIC_POLICIES: Policy[] = [
+    {
+        title: 'Data Access Policy',
+        desc: 'Vendors can only see assigned client data. Access is restricted and monitored.',
+        badge: 'Policy Active'
+    },
+    {
+        title: 'No Data Export Policy',
+        desc: 'Client data cannot be exported, copied, or shared outside the platform.',
+        badge: 'Strictly Enforced'
+    },
+    {
+        title: 'Limited Data Access',
+        desc: 'Access to client data is restricted to authorized personnel only.',
+        badge: 'Controlled Access'
+    },
+    {
+        title: 'Data Retention Policy',
+        desc: 'Client data will be retained for a maximum of 12 months unless otherwise specified.',
+        badge: 'Regular Audits'
+    }
+];
+
 export default function Permissions() {
     const [activeTab, setActiveTab] = useState('Overview');
     const [permissionsData, setPermissionsData] = useState<PermissionsData | null>(null);
     const [policies, setPolicies] = useState<Policy[]>([]);
     const [complianceData, setComplianceData] = useState<ComplianceData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [clientCount, setClientCount] = useState(0);
 
     useEffect(() => {
         fetchPermissionsData();
@@ -77,15 +101,19 @@ export default function Permissions() {
     const fetchPermissionsData = async () => {
         try {
             setLoading(true);
-            const [permRes, policyRes, complianceRes] = await Promise.all([
+            const [permRes, policyRes, complianceRes, clientRes] = await Promise.all([
                 axiosInstance.get(ApiConstants.VENDOR_PERMISSIONS),
                 axiosInstance.get(ApiConstants.VENDOR_PERMISSIONS_SECURITY_POLICIES),
-                axiosInstance.get(ApiConstants.VENDOR_PERMISSIONS_COMPLIANCE)
+                axiosInstance.get(ApiConstants.VENDOR_PERMISSIONS_COMPLIANCE),
+                axiosInstance.get(ApiConstants.VENDOR_CLIENTS)
             ]);
 
-            setPermissionsData(permRes.data);
-            setPolicies(policyRes.data.policies || []);
-            setComplianceData(complianceRes.data);
+            setPermissionsData(permRes?.data);
+            setPolicies(policyRes?.data?.policies || []);
+            setComplianceData(complianceRes?.data);
+            if (clientRes?.data?.clients) {
+                setClientCount(clientRes.data.clients.length);
+            }
         } catch (error) {
             console.error('Error fetching permissions data:', error);
         } finally {
@@ -146,14 +174,17 @@ export default function Permissions() {
                                             <Text style={styles.pillText}>{permissionsData?.client_visibility_display || 'N/A'}</Text>
                                         </View>
                                     </View>
-
                                     <View style={styles.cardItem}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.itemTitle}>Assigned Clients</Text>
-                                            <Text style={styles.itemSubtitle}>You have access to {permissionsData?.assigned_clients_count || 0} assigned client accounts</Text>
+                                            <Text style={styles.itemSubtitle}>
+                                                You have access to {permissionsData?.assigned_clients_count || clientCount} assigned client accounts
+                                            </Text>
                                         </View>
                                         <View style={styles.badgeContainer}>
-                                            <Text style={styles.badgeText}>{permissionsData?.assigned_clients_count || 0}</Text>
+                                            <Text style={styles.badgeText}>
+                                                {permissionsData?.assigned_clients_count || clientCount}
+                                            </Text>
                                         </View>
                                     </View>
                                 </View>
@@ -204,22 +235,15 @@ export default function Permissions() {
                                     <Text style={styles.pageTitle}>Security Policies</Text>
                                     <Text style={styles.pageSubtitle}>Data protection and access control policies in effect</Text>
                                 </View>
-
-                                {policies.length === 0 ? (
-                                    <View style={styles.emptyState}>
-                                        <Text style={styles.emptyStateText}>No security policies available</Text>
-                                    </View>
-                                ) : (
-                                    policies.map((policy, index) => (
-                                        <View key={index} style={styles.policyCard}>
-                                            <Text style={styles.policyTitle}>{policy.title}</Text>
-                                            <Text style={styles.policyDesc}>{policy.desc}</Text>
-                                            <View style={styles.policyBadge}>
-                                                <Text style={styles.policyBadgeText}>{policy.badge}</Text>
-                                            </View>
+                                {(policies.length > 0 ? policies : STATIC_POLICIES).map((policy, index) => (
+                                    <View key={index} style={styles.policyCard}>
+                                        <Text style={styles.policyTitle}>{policy.title}</Text>
+                                        <Text style={styles.policyDesc}>{policy.desc}</Text>
+                                        <View style={styles.policyBadge}>
+                                            <Text style={styles.policyBadgeText}>{policy.badge}</Text>
                                         </View>
-                                    ))
-                                )}
+                                    </View>
+                                ))}
                             </View>
                         )}
 

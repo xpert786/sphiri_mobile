@@ -99,6 +99,7 @@ export default function ReminderDetailScreen() {
         );
     }
 
+
     return (
         <SafeAreaView style={styles.container}>
             <Header
@@ -127,9 +128,9 @@ export default function ReminderDetailScreen() {
                                 <View style={styles.statusBadge}>
                                     <Text style={styles.statusBadgeText}>{capitalizeFirstLetter(data.status.replace('_', ' '))}</Text>
                                 </View>
-                                <View style={[styles.priorityBadge, { backgroundColor: data.priority.id === 5 ? '#FEF2F2' : '#F0F9FF' }]}>
-                                    <View style={[styles.priorityDot, { backgroundColor: data.priority.color }]} />
-                                    <Text style={[styles.priorityText, { color: data.priority.color }]}>{data.priority.name}</Text>
+                                <View style={[styles.priorityBadge, { backgroundColor: data.priority.id === 5 ? '#FEF2F2' : data.priority.id === 4 ? '#FFF7ED' : '#F0F9FF' }]}>
+                                    <View style={[styles.priorityDot, { backgroundColor: data?.priority?.color }]} />
+                                    <Text style={[styles.priorityText, { color: data?.priority?.color }]}>{data?.priority?.name}</Text>
                                 </View>
                             </View>
                         </View>
@@ -139,28 +140,28 @@ export default function ReminderDetailScreen() {
                     {/* Information Blocks */}
                     <View style={styles.infoBlock}>
                         <Text style={styles.infoBlockLabel}>Category</Text>
-                        <Text style={styles.infoBlockValue}>{data.category.name}</Text>
+                        <Text style={styles.infoBlockValue}>{capitalizeFirstLetter(data?.category?.name)}</Text>
                     </View>
 
                     <View style={styles.infoBlock}>
                         <Text style={styles.infoBlockLabel}>Created By</Text>
-                        <Text style={styles.infoBlockValue}>{data.created_by || 'N/A'}</Text>
+                        <Text style={styles.infoBlockValue}>{data?.created_by || 'N/A'}</Text>
                     </View>
 
                     <View style={styles.infoBlock}>
                         <Text style={styles.infoBlockLabel}>Due Date</Text>
-                        <Text style={styles.infoBlockValue}>{formatDate(data.reminder_date)}</Text>
+                        <Text style={styles.infoBlockValue}>{formatDate(data?.reminder_date)}</Text>
                     </View>
 
                     <View style={styles.infoBlock}>
                         <Text style={styles.infoBlockLabel}>Priority</Text>
-                        <Text style={styles.infoBlockValue}>{data.priority.name}</Text>
+                        <Text style={styles.infoBlockValue}>{capitalizeFirstLetter(data?.priority?.name)}</Text>
                     </View>
 
                     {/* Description Area */}
                     <Text style={styles.descriptionTitle}>Description</Text>
                     <View style={styles.descriptionBox}>
-                        <Text style={styles.descriptionText}>{data.description || 'No description provided.'}</Text>
+                        <Text style={styles.descriptionText}>{capitalizeFirstLetter(data?.description) || 'No description provided.'}</Text>
                     </View>
 
                     {/* Footer Metadata */}
@@ -168,7 +169,7 @@ export default function ReminderDetailScreen() {
                     <View style={styles.metadataContainer}>
                         <Text style={styles.metadataText}>Reminder ID: #{data.id}</Text>
                         <Text style={styles.dotText}>•</Text>
-                        <Text style={styles.metadataText}>Created: {formatDate(data.created_at)}</Text>
+                        <Text style={styles.metadataText}>Created: {formatDate(data?.created_at)}</Text>
                     </View>
                 </View>
             </ScrollView>

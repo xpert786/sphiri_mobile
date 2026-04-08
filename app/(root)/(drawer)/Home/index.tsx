@@ -20,9 +20,9 @@ export default function Home() {
     AsyncStorage.getItem(StringConstants.USER_ROLE).then(role => {
       if (role) setUserRole(role as UserRole);
     });
-    // AsyncStorage.getItem(StringConstants.ACCESS_TOKEN).then(accessToken => {
-    //   if (accessToken) console.log("Access Token in Home:", accessToken)
-    // });
+    AsyncStorage.getItem(StringConstants.ACCESS_TOKEN).then(accessToken => {
+      if (accessToken) console.log("Access Token in Home:", accessToken)
+    });
   }, []);
 
   if (loading || !userRole) {

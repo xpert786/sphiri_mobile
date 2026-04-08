@@ -8,11 +8,12 @@ import { Fonts } from '@/constants/Fonts';
 import { capitalizeFirstLetter } from '@/constants/Helper';
 import AppointmentDetailsModal from '@/modals/AppointmentDetailsModal';
 import { useFocusEffect } from '@react-navigation/native';
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
+  FlatList,
   Image,
   RefreshControl,
   ScrollView,
@@ -76,7 +77,7 @@ export default function VendorView({ userData }: any) {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Default values to fall back or initial state if needed
-  const businessName = dashboardData?.business_name || userData?.business_name || "Alex's Plumbing";
+  const businessName = dashboardData?.business_name || userData?.business_name || "Vendor";
 
   useFocusEffect(
     React.useCallback(() => {
@@ -121,7 +122,7 @@ export default function VendorView({ userData }: any) {
 
   const getStatsArray = () => {
     if (!dashboardData) return [];
-    return [
+    const stats: { count: string; change: number; label: string; icon: any; route: Href }[] = [
       {
         count: dashboardData.stats.active_clients.toString(),
         change: dashboardData.stats.active_clients_change,
@@ -151,11 +152,41 @@ export default function VendorView({ userData }: any) {
         route: '/(root)/(drawer)/analytics-vendor'
       },
     ];
+    return stats;
   };
 
   const dashboardStats = getStatsArray();
   const recentActivities = dashboardData?.recent_activity || [];
   const upcomingAppointments = dashboardData?.upcoming_appointments || [];
+
+  const renderActivityItem = ({ item, index }: { item: RecentActivity; index: number }) => (
+    <View style={[styles.activityCard, index === recentActivities.length - 1 && { marginBottom: 0 }]}>
+      <View style={styles.activityRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.activityName}>{capitalizeFirstLetter(item.title)}</Text>
+          <Text style={styles.activityAction}>{capitalizeFirstLetter(item.description)}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <View style={[styles.statusBadge, {
+            backgroundColor: item.activity_type === 'new_client' || item.activity_type === 'completed'
+              ? ColorConstants.GREEN2
+              : item.activity_type === 'pending' || item.activity_type.includes('request')
+                ? ColorConstants.ORANGE
+                : '#E5E7EB'
+          }]}>
+            <Text style={[styles.statusText, {
+              color: (item.activity_type === 'new_client' || item.activity_type === 'completed' || item.activity_type === 'pending' || item.activity_type.includes('request'))
+                ? ColorConstants.WHITE
+                : ColorConstants.BLACK
+            }]}>
+              {item.activity_type_display}
+            </Text>
+          </View>
+          <Text style={styles.activityTime}>{item.time_ago}</Text>
+        </View>
+      </View>
+    </View>
+  );
 
   if (loading && !refreshing) {
     return (
@@ -226,34 +257,15 @@ export default function VendorView({ userData }: any) {
         <Text style={styles.sectionTitle}>Recent Activity</Text>
         <Text style={styles.sectionSubtitle}>Latest updates from your business</Text>
 
-        {recentActivities.map((item, index) => (
-          <View key={item.id} style={[styles.activityCard, index === recentActivities.length - 1 && { marginBottom: 0 }]}>
-            <View style={styles.activityRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.activityName}>{capitalizeFirstLetter(item.title)}</Text>
-                <Text style={styles.activityAction}>{capitalizeFirstLetter(item.description)}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <View style={[styles.statusBadge, {
-                  backgroundColor: item.activity_type === 'new_client' || item.activity_type === 'completed'
-                    ? ColorConstants.GREEN2
-                    : item.activity_type === 'pending' || item.activity_type.includes('request')
-                      ? ColorConstants.ORANGE
-                      : '#E5E7EB'
-                }]}>
-                  <Text style={[styles.statusText, {
-                    color: (item.activity_type === 'new_client' || item.activity_type === 'completed' || item.activity_type === 'pending' || item.activity_type.includes('request'))
-                      ? ColorConstants.WHITE
-                      : ColorConstants.BLACK
-                  }]}>
-                    {item.activity_type_display}
-                  </Text>
-                </View>
-                <Text style={styles.activityTime}>{item.time_ago}</Text>
-              </View>
-            </View>
-          </View>
-        ))}
+        <FlatList
+          data={recentActivities}
+          renderItem={renderActivityItem}
+          keyExtractor={(item) => item.id.toString()}
+          scrollEnabled={false}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No recent activity found.</Text>
+          }
+        />
       </View>
 
       {/* Upcoming Appointments */}
@@ -262,7 +274,7 @@ export default function VendorView({ userData }: any) {
         <Text style={styles.sectionSubtitle}>Next scheduled services</Text>
 
         {upcomingAppointments.length === 0 ? (
-          <Text style={[styles.sectionSubtitle, { marginTop: 10, fontFamily: Fonts.ManropeLight, textAlign: 'center' }]}>No upcoming appointments.</Text>
+          <Text style={styles.emptyText}>No upcoming appointments.</Text>
         ) : (
           upcomingAppointments.map((item) => (
             <View key={item.id} style={styles.appointmentCard}>
@@ -419,6 +431,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: ColorConstants.GRAY3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   activityRow: {
     flexDirection: 'row',
@@ -506,5 +523,12 @@ const styles = StyleSheet.create({
     color: ColorConstants.DARK_CYAN,
     lineHeight: 20,
     maxWidth: '90%',
+  },
+  emptyText: {
+    fontFamily: Fonts.mulishRegular,
+    fontSize: 14,
+    color: ColorConstants.GRAY,
+    textAlign: 'center',
+    marginTop: 10,
   },
 });

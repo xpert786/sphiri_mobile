@@ -4,13 +4,15 @@ import { Icons } from '@/assets';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
+import { capitalizeFirstLetter } from '@/constants/Helper';
 import { StringConstants } from '@/constants/StringConstants';
 import DeleteReminderModal from '@/modals/DeleteReminderModal';
 import EditReminderModal from '@/modals/EditReminderModal';
 import NewReminderModal from '@/modals/NewReminderModal';
 import SnoozeReminderModal from '@/modals/SnoozeReminderModal';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -21,12 +23,14 @@ const options = [StringConstants.ADD_REMINDER, StringConstants.EXPORT_CALENDAR]
 
 const STATUS_OPTIONS = [
     'All Status',
-    'Active',
+    'Pending',
+    'In-progress',
     'Completed',
     'Overdue',
 ];
 
 const SORT_OPTIONS = [
+    'Sort by: Recent',
     'Sort by: Due Date',
     'Sort by: Priority',
     'Sort by: Category',
@@ -65,7 +69,7 @@ export default function SetReminder() {
 
     const [selectedCategory, setSelectedCategory] = React.useState('All categories');
     const [selectedStatus, setSelectedStatus] = React.useState('All Status');
-    const [selectedSort, setSelectedSort] = React.useState('Sort by: Due Date');
+    const [selectedSort, setSelectedSort] = React.useState('Sort by: Recent');
     const [dropdownLayout, setDropdownLayout] = React.useState<{
         x: number;
         y: number;
@@ -99,26 +103,41 @@ export default function SetReminder() {
 
     const fetchTodosData = async () => {
         try {
-            const response = await apiGet(ApiConstants.TODOS);
-            if (response.data && response.data.results) {
-                return response.data.results.map((item: any) => ({
-                    id: `todo-${item.id}`,
-                    title: item.title,
-                    priority: item.priority_name || item.priority,
-                    date: item.due_date || item.reminder_date,
-                    displayDate: formatDateToMDY(item.due_date || item.reminder_date),
-                    time: formatTimeFromISO(item.created_at),
-                    assignedTo: item.assigned_to_name || 'Unassigned',
-                    description: item.description,
-                    category: item.category_name,
-                    tags: [item.category_name],
-                    completed: item.is_completed,
-                    priority_color: item.priority_color,
-                    status: item.status,
-                    is_overdue: item.is_overdue,
-                    item_type: 'todo'
-                }));
+            let allTodos: any[] = [];
+            let currentUrl: string | null = ApiConstants.TODOS;
+
+            while (currentUrl) {
+                // apiGet handles both relative and absolute URLs if axios is configured correctly, 
+                // but for safety with baseURL, we should check if it's absolute.
+                const response = await apiGet(currentUrl);
+                if (response.data && response.data.results) {
+                    const mapped = response.data.results.map((item: any) => ({
+                        id: `todo-${item.id}`,
+                        title: item.title,
+                        priority: item.priority_name || item.priority,
+                        date: item.due_date || item.reminder_date,
+                        displayDate: formatDateToMDY(item.due_date || item.reminder_date),
+                        time: item.reminder_time ? formatTimeStr(item.reminder_time) : formatTimeFromISO(item.created_at),
+                        reminder_time: item.reminder_time,
+                        assignedTo: item.assigned_to_name || 'Unassigned',
+                        description: item.description,
+                        category: item.category_name,
+                        categoryId: item.category,
+                        tags: [item.category_name],
+                        completed: item.is_completed,
+                        priority_color: item.priority_color,
+                        status: item.status,
+                        is_overdue: item.is_overdue,
+                        item_type: 'todo',
+                        createdAt: item.created_at
+                    }));
+                    allTodos = [...allTodos, ...mapped];
+                    currentUrl = response.data.next;
+                } else {
+                    currentUrl = null;
+                }
             }
+            return allTodos;
         } catch (error) {
             console.error('Error fetching todos:', error);
         }
@@ -127,27 +146,42 @@ export default function SetReminder() {
 
     const fetchRemindersData = async () => {
         try {
-            const response = await apiGet(ApiConstants.REMINDERS);
-            if (response.data && response.data.results) {
-                return response.data.results.map((item: any) => ({
-                    id: `reminder-${item.id}`,
-                    title: item.title,
-                    priority: item.priority_name || item.priority,
-                    dueDate: item.due_date,
-                    date: item.reminder_date || item.due_date,
-                    displayDate: formatDateToMDY(item.reminder_date || item.due_date),
-                    time: formatTimeFromISO(item.created_at),
-                    assignedTo: item.assigned_to_name?.[0] || 'Unassigned',
-                    description: item.description,
-                    category: item.category_name,
-                    tags: [item.category_name],
-                    completed: item.is_completed,
-                    priority_color: item.priority_color,
-                    status: item.status,
-                    is_overdue: item.is_overdue,
-                    item_type: 'reminder'
-                }));
+            let allReminders: any[] = [];
+            let currentUrl: string | null = ApiConstants.REMINDERS;
+
+            while (currentUrl) {
+                const response = await apiGet(currentUrl);
+                console.log("response in all reminders: ", JSON.stringify(response.data));
+
+                if (response.data && response.data.results) {
+                    const mapped = response.data.results.map((item: any) => ({
+                        id: `reminder-${item.id}`,
+                        title: capitalizeFirstLetter(item.title),
+                        priority: item.priority_name || item.priority,
+                        dueDate: item.due_date,
+                        date: item.reminder_date || item.due_date,
+                        displayDate: formatDateToMDY(item.reminder_date || item.due_date),
+                        time: item.reminder_time ? formatTimeStr(item.reminder_time) : formatTimeFromISO(item.created_at),
+                        reminder_time: item.reminder_time,
+                        assignedTo: item.assigned_to_name?.[0] || 'Unassigned',
+                        description: item.description,
+                        category: item.category_name,
+                        categoryId: item.category,
+                        tags: [item.category_name],
+                        completed: item.is_completed,
+                        priority_color: item.priority_color,
+                        status: item.status,
+                        is_overdue: item.is_overdue,
+                        item_type: 'reminder',
+                        createdAt: item.created_at
+                    }));
+                    allReminders = [...allReminders, ...mapped];
+                    currentUrl = response.data.next;
+                } else {
+                    currentUrl = null;
+                }
             }
+            return allReminders;
         } catch (error) {
             console.error('Error fetching reminders:', error);
         }
@@ -330,7 +364,7 @@ export default function SetReminder() {
                 reminder_date: formatDateToYMD(updatedData.dueDate),
                 reminder_time: formattedTime,
                 priority: priorityVal,
-                category_name: updatedData.category,
+                category: updatedData.categoryId || updatedData.category,
             };
 
             console.log("Editing reminder with payload:", payload);
@@ -443,6 +477,19 @@ export default function SetReminder() {
         return `${strHours}:${strMinutes} ${ampm}`;
     };
 
+    const formatTimeStr = (timeStr: string) => {
+        if (!timeStr) return '';
+        const parts = timeStr.split(':');
+        if (parts.length < 2) return timeStr;
+        let [hours, minutes] = parts.map(p => parseInt(p, 10));
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        const strHours = String(hours).padStart(2, '0');
+        const strMinutes = String(minutes).padStart(2, '0');
+        return `${strHours}:${strMinutes} ${ampm}`;
+    };
+
     const formatDateToMDY = (dateStr: string) => {
         if (!dateStr) return '';
         const parts = dateStr.split('-');
@@ -504,8 +551,9 @@ export default function SetReminder() {
 
         // 3. Status Filter
         if (selectedStatus !== 'All Status') {
-            if (selectedStatus === 'Active' && (r.status === 'completed' || r.status === 'cancelled')) return false;
-            if (selectedStatus === 'Completed' && r.status !== 'completed') return false;
+            if (selectedStatus === 'Pending' && r.status !== 'pending') return false;
+            if (selectedStatus === 'In-progress' && r.status !== 'in_progress') return false;
+            if (selectedStatus === 'Completed' && r.status !== 'completed' && !r.completed) return false;
             if (selectedStatus === 'Overdue' && !r.is_overdue) return false;
         }
 
@@ -534,10 +582,13 @@ export default function SetReminder() {
             return (a.tags[0] || '').localeCompare(b.tags[0] || '');
         }
 
-        // Default: sort by original numeric ID descending (latest first)
-        const idA = Number(a.id.replace('reminder-', '').replace('todo-', '')) || 0;
-        const idB = Number(b.id.replace('reminder-', '').replace('todo-', '')) || 0;
-        return idB - idA;
+        // Default: Group by type (Reminders first, then Todos) and keep API order
+        if (a.item_type !== b.item_type) {
+            return a.item_type === 'reminder' ? -1 : 1;
+        }
+
+        // Same type: maintain relative order from API
+        return 0;
     });
 
     useEffect(() => {
@@ -572,7 +623,7 @@ export default function SetReminder() {
     const renderReminderItem = ({ item }: { item: any }) => (
         <View style={styles.reminderCard}>
             <View style={styles.reminderHeader}>
-                <TouchableOpacity
+                {/* <TouchableOpacity
                     style={styles.checkbox}
                     activeOpacity={0.7}
                     onPress={() => toggleCheck(item.id)}
@@ -583,52 +634,59 @@ export default function SetReminder() {
                             style={styles.checkboxIcon}
                         />
                     )}
-                </TouchableOpacity>
+                </TouchableOpacity> */}
 
                 <View style={styles.reminderContent}>
                     <View style={styles.titleRow}>
-                        <Text style={styles.reminderTitle}>{item.title}</Text>
+                        <Text style={styles.reminderTitle} numberOfLines={1}>{capitalizeFirstLetter(item.title)}</Text>
                         <View style={[styles.typeTag, item.item_type === 'todo' ? styles.todoTag : styles.reminderTag]}>
                             <Text style={styles.typeTagText}>{item.item_type}</Text>
                         </View>
                     </View>
-                    {item.priority ? (
-                        <View style={[styles.priorityTag, { backgroundColor: item.priority_color || ColorConstants.RED }]}>
-                            <Text style={styles.priorityText}>{item.priority}</Text>
-                        </View>
-                    ) : null}
+
+                    <View style={styles.priorityAndDateRow}>
+                        {item.priority ? (
+                            <View style={[styles.priorityTag, { backgroundColor: item.priority_color || ColorConstants.RED }]}>
+                                <Text style={styles.priorityText}>{item.priority}</Text>
+                            </View>
+                        ) : null}
+                    </View>
 
                     <View style={styles.metaRow}>
                         <View style={styles.metaItem}>
                             <Image source={Icons.ic_calendar_outline} style={styles.metaIcon} />
-                            <Text style={styles.metaText}>Due: {item.displayDate || item.date}</Text>
+                            <Text style={styles.metaText}>{item.displayDate || item.date}</Text>
                         </View>
-                        <View style={styles.metaItem}>
-                            <Image source={Icons.ic_user_single} style={styles.metaIcon} />
-                            <Text style={styles.metaText}>Assigned to: {item.assignedTo}</Text>
-                        </View>
+                        {item.assignedTo && (
+                            <View style={styles.metaItem}>
+                                <Image source={Icons.ic_user_single} style={styles.metaIcon} />
+                                <Text style={styles.metaText} numberOfLines={1}>{item.assignedTo}</Text>
+                            </View>
+                        )}
                     </View>
 
-                    <Text style={styles.description}>{item.description}</Text>
+                    <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
 
-                    {/* <View style={styles.tagsRow}>
-                        {item.tags.map((tag: string, index: number) => (
-                            <View key={index} style={styles.tag}>
-                                <Text style={styles.tagText}>{tag}</Text>
-                            </View>
-                        ))}
-                    </View> */}
+                    <View style={styles.bottomRow}>
+                        <View style={styles.tagsRow}>
+                            {(item.tags || []).slice(0, 2).map((tag: string, index: number) => (
+                                <View key={index} style={styles.tag}>
+                                    <Text style={styles.tagText}>{tag}</Text>
+                                </View>
+                            ))}
+                        </View>
 
-                    <View style={styles.actionsRow}>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => openEditModal(item)}>
-                            <Image source={Icons.ic_edit} style={styles.actionIcon} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => openDeleteModal(item)}>
-                            <Image source={Icons.ic_bin2} style={styles.actionIcon} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => openSnoozeModal(item)}>
-                            <Image source={Icons.ic_clock} style={styles.actionIcon} />
-                        </TouchableOpacity>
+                        <View style={styles.actionsRow}>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => openEditModal(item)}>
+                                <MaterialCommunityIcons name="pencil-outline" size={16} color={ColorConstants.BLACK2} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => openDeleteModal(item)}>
+                                <MaterialCommunityIcons name="delete-outline" size={16} color={ColorConstants.BLACK2} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.actionButton, { marginRight: 0 }]} onPress={() => openSnoozeModal(item)}>
+                                <MaterialCommunityIcons name="clock-outline" size={16} color={ColorConstants.BLACK2} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </View>
@@ -933,37 +991,36 @@ export default function SetReminder() {
 
                             {Array.from({ length: totalPages }, (_, i) => i + 1)
                                 .filter(page => {
-                                    if (totalPages <= 5) return true;
-                                    return (
-                                        page === 1 ||
-                                        page === totalPages ||
-                                        (page >= currentPage - 1 && page <= currentPage + 1)
-                                    );
+                                    const maxVisible = 4;
+                                    let start = Math.max(1, currentPage - 1);
+                                    let end = start + maxVisible - 1;
+
+                                    if (end > totalPages) {
+                                        end = totalPages;
+                                        start = Math.max(1, end - maxVisible + 1);
+                                    }
+                                    return page >= start && page <= end;
                                 })
-                                .map((page, index, array) => {
+                                .map((page) => {
                                     const isActive = page === currentPage;
                                     return (
-                                        <React.Fragment key={page}>
-                                            {index > 0 && array[index - 1] !== page - 1 && (
-                                                <Text style={styles.pageNumberText}>...</Text>
-                                            )}
-                                            <TouchableOpacity
+                                        <TouchableOpacity
+                                            key={page}
+                                            style={[
+                                                styles.pageNumberButton,
+                                                isActive && styles.pageNumberButtonActive
+                                            ]}
+                                            onPress={() => handlePageChange(page)}
+                                        >
+                                            <Text
                                                 style={[
-                                                    styles.pageNumberButton,
-                                                    isActive && styles.pageNumberButtonActive
+                                                    styles.pageNumberText,
+                                                    isActive && styles.pageNumberTextActive
                                                 ]}
-                                                onPress={() => handlePageChange(page)}
                                             >
-                                                <Text
-                                                    style={[
-                                                        styles.pageNumberText,
-                                                        isActive && styles.pageNumberTextActive
-                                                    ]}
-                                                >
-                                                    {page}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </React.Fragment>
+                                                {page}
+                                            </Text>
+                                        </TouchableOpacity>
                                     );
                                 })}
 
@@ -990,36 +1047,47 @@ export default function SetReminder() {
 
             </ScrollView>
             {openDropdown && dropdownLayout && (
-                <View
-                    style={[
-                        styles.portalDropdown,
-                        {
-                            top: dropdownLayout.y,
-                            left: dropdownLayout.x,
-                            width: dropdownLayout.width,
-                        },
-                    ]}
+                <Modal
+                    visible={!!openDropdown}
+                    transparent={true}
+                    animationType="none"
+                    onRequestClose={() => setOpenDropdown(null)}
                 >
-                    {(openDropdown === 'category'
-                        ? categories
-                        : openDropdown === 'sort'
-                            ? SORT_OPTIONS
-                            : STATUS_OPTIONS
-                    ).map(item => (
-                        <TouchableOpacity
-                            key={item}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                                if (openDropdown === 'category') setSelectedCategory(item);
-                                else if (openDropdown === 'sort') setSelectedSort(item);
-                                else if (openDropdown === 'status') setSelectedStatus(item);
-                                setOpenDropdown(null);
-                            }}
-                        >
-                            <Text style={styles.dropdownItemText}>{item}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                    <TouchableWithoutFeedback onPress={() => setOpenDropdown(null)}>
+                        <View style={{ flex: 1 }}>
+                            <View
+                                style={[
+                                    styles.portalDropdown,
+                                    {
+                                        top: dropdownLayout.y,
+                                        left: dropdownLayout.x,
+                                        width: dropdownLayout.width,
+                                    },
+                                ]}
+                            >
+                                {(openDropdown === 'category'
+                                    ? categories
+                                    : openDropdown === 'sort'
+                                        ? SORT_OPTIONS
+                                        : STATUS_OPTIONS
+                                ).map(item => (
+                                    <TouchableOpacity
+                                        key={item}
+                                        style={styles.dropdownItem}
+                                        onPress={() => {
+                                            if (openDropdown === 'category') setSelectedCategory(item);
+                                            else if (openDropdown === 'sort') setSelectedSort(item);
+                                            else if (openDropdown === 'status') setSelectedStatus(item);
+                                            setOpenDropdown(null);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownItemText}>{item}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </Modal>
             )}
         </SafeAreaView>
     );
@@ -1306,32 +1374,36 @@ const styles = StyleSheet.create({
     },
     reminderCard: {
         backgroundColor: ColorConstants.WHITE,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: ColorConstants.GRAY3,
+        borderRadius: 16,
         padding: 16,
         marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     reminderHeader: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
     },
     checkbox: {
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        borderWidth: 1,
-        borderColor: ColorConstants.PRIMARY_BROWN,
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: '#D1D5DB',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 10,
-        marginTop: 4,
+        marginTop: 2,
+        marginRight: 14,
     },
 
     checkboxIcon: {
-        width: 18,
-        height: 18,
-        resizeMode: 'contain',
+        width: 14,
+        height: 14,
+        tintColor: ColorConstants.PRIMARY_BROWN,
     },
     reminderContent: {
         flex: 1,
@@ -1358,71 +1430,86 @@ const styles = StyleSheet.create({
     },
     typeTag: {
         paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
+        paddingVertical: 3,
+        borderRadius: 6,
     },
     todoTag: {
-        backgroundColor: '#E3F2FD', // Light Blue
+        backgroundColor: '#EBF5FF',
     },
     reminderTag: {
-        backgroundColor: '#FFF3E0', // Light Orange
+        backgroundColor: '#FFF7ED',
     },
     typeTagText: {
         fontFamily: Fonts.ManropeMedium,
         fontSize: 10,
         color: ColorConstants.BLACK2,
         textTransform: 'capitalize',
+        letterSpacing: 0.5,
     },
     reminderTitle: {
-        fontFamily: Fonts.ManropeMedium,
+        fontFamily: Fonts.ManropeBold,
         fontSize: 16,
         color: ColorConstants.BLACK2,
+        flex: 1,
+        marginRight: 10,
+    },
+    priorityAndDateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
     },
     priorityTag: {
-        backgroundColor: ColorConstants.RED,
-        alignSelf: 'flex-start',
         paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        marginBottom: 8,
+        paddingVertical: 3,
+        borderRadius: 4,
     },
     priorityText: {
-        fontFamily: Fonts.ManropeMedium,
-        fontSize: 10,
+        fontFamily: Fonts.ManropeBold,
+        fontSize: 9,
         color: ColorConstants.WHITE,
+        textTransform: 'uppercase',
     },
     metaRow: {
-        // flexDirection: 'row',
-        marginBottom: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
         gap: 16,
     },
     metaItem: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
     metaIcon: {
-        tintColor: ColorConstants.DARK_CYAN,
-        marginRight: 4,
+        width: 14,
+        height: 14,
+        tintColor: '#9CA3AF',
+        marginRight: 6,
+        resizeMode: 'contain',
     },
     metaText: {
         fontFamily: Fonts.mulishRegular,
         fontSize: 12,
-        color: ColorConstants.DARK_CYAN,
+        color: '#6B7280',
     },
     description: {
         fontFamily: Fonts.mulishRegular,
-        fontSize: 14,
+        fontSize: 13,
         color: ColorConstants.DARK_CYAN,
-        marginBottom: 12,
-        lineHeight: 20,
+        marginBottom: 16,
+        lineHeight: 18,
+    },
+    bottomRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     tagsRow: {
         flexDirection: 'row',
-        marginBottom: 12,
         gap: 8,
     },
     tag: {
-        backgroundColor: ColorConstants.GRAY3,
+        backgroundColor: '#F3F4F6',
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 12,
@@ -1430,19 +1517,21 @@ const styles = StyleSheet.create({
     tagText: {
         fontFamily: Fonts.ManropeMedium,
         fontSize: 10,
-        color: ColorConstants.BLACK2,
+        color: '#4B5563',
     },
     actionsRow: {
         flexDirection: 'row',
-        gap: 8,
+        gap: 10,
     },
     actionButton: {
         width: 32,
         height: 32,
-        backgroundColor: ColorConstants.GRAY_SHADE,
-        borderRadius: 8,
+        backgroundColor: '#F9FAFB',
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
     },
     actionIcon: {
         width: 16,

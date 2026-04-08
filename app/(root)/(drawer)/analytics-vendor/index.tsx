@@ -24,13 +24,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const screenWidth = Dimensions.get('window').width;
 
 export default function AnalyticsVendor() {
-    const [activeTab, setActiveTab] = useState<'Statistics' | 'Renewal Pipeline' | 'Feedback'>('Statistics');
+    const [activeTab, setActiveTab] = useState<'Engagement Stats' | 'Renewal Pipeline' | 'Client Feedback'>('Engagement Stats');
 
     // API Data State
     const [analyticsData, setAnalyticsData] = useState<any>(null);
     const [renewalData, setRenewalData] = useState<any[]>([]);
     const [feedbackData, setFeedbackData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isAnalyticsForbidden, setIsAnalyticsForbidden] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -53,20 +54,42 @@ export default function AnalyticsVendor() {
     const fetchAnalyticsData = async () => {
         try {
             setLoading(true);
+            setIsAnalyticsForbidden(false);
 
-            // Fetch all three endpoints in parallel
-            const [analyticsResponse, renewalResponse, feedbackResponse] = await Promise.all([
+            // Fetch all three endpoints in parallel using allSettled to handle individual failures
+            const results = await Promise.allSettled([
                 axiosInstance.get(ApiConstants.VENDOR_ANALYTICS),
                 axiosInstance.get(ApiConstants.VENDOR_ANALYTICS_RENEWAL_PIPELINE),
                 axiosInstance.get(ApiConstants.VENDOR_ANALYTICS_FEEDBACK)
             ]);
 
-            setAnalyticsData(analyticsResponse.data);
-            setRenewalData(renewalResponse.data.pipeline || []);
-            setFeedbackData(feedbackResponse.data);
+            // Handle VENDOR_ANALYTICS
+            if (results[0].status === 'fulfilled') {
+                setAnalyticsData(results[0].value.data);
+            } else {
+                const error = results[0].reason;
+                if (error?.response?.status === 403) {
+                    setIsAnalyticsForbidden(true);
+                }
+                console.error('Error fetching VENDOR_ANALYTICS:', error);
+            }
+
+            // Handle RENEWAL_PIPELINE
+            if (results[1].status === 'fulfilled') {
+                setRenewalData(results[1].value.data?.pipeline || []);
+            } else {
+                console.error('Error fetching VENDOR_ANALYTICS_RENEWAL_PIPELINE:', results[1].reason);
+            }
+
+            // Handle FEEDBACK
+            if (results[2].status === 'fulfilled') {
+                setFeedbackData(results[2].value.data);
+            } else {
+                console.error('Error fetching VENDOR_ANALYTICS_FEEDBACK:', results[2].reason);
+            }
 
         } catch (error) {
-            console.error('Error fetching analytics data:', error);
+            console.error('General error fetching analytics data:', error);
         } finally {
             setLoading(false);
         }
@@ -146,78 +169,82 @@ export default function AnalyticsVendor() {
             </View>
 
             {/* Revenue Trend */}
-            <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Revenue Trend</Text>
-                <Text style={styles.chartSubtitle}>Lost 6 months performance</Text>
-                <View style={{ marginTop: 20, alignItems: 'center', overflow: 'hidden' }}>
+            {!isAnalyticsForbidden && (
+                <View style={styles.chartCard}>
+                    <Text style={styles.chartTitle}>Revenue Trend</Text>
+                    <Text style={styles.chartSubtitle}>Lost 6 months performance</Text>
+                    <View style={{ marginTop: 20, alignItems: 'center', overflow: 'hidden' }}>
 
-                    <BarChart
-                        data={barData}
-                        width={screenWidth}
-                        height={200}
-                        barWidth={20}
-                        spacing={25}
-                        roundedTop
+                        <BarChart
+                            data={barData}
+                            width={screenWidth}
+                            height={200}
+                            barWidth={20}
+                            spacing={25}
+                            roundedTop
 
-                        /* GRID LINES */
-                        hideRules={false}              // very important
-                        rulesType="dashed"              // "solid" | "dashed"
-                        rulesColor="#E0E0E0"            // horizontal grid color
-                        rulesThickness={1}
+                            /* GRID LINES */
+                            hideRules={false}              // very important
+                            rulesType="dashed"              // "solid" | "dashed"
+                            rulesColor="#E0E0E0"            // horizontal grid color
+                            rulesThickness={1}
 
-                        showVerticalLines={false}              // X-axis grid lines
-                        verticalLinesColor="#E0E0E0"
-                        verticalLinesThickness={1}
+                            showVerticalLines={false}              // X-axis grid lines
+                            verticalLinesColor="#E0E0E0"
+                            verticalLinesThickness={1}
 
-                        /* Axis */
-                        xAxisThickness={1}
-                        yAxisThickness={1}
-                        xAxisColor="#E0E0E0"
-                        yAxisColor="#E0E0E0"
-                        yAxisLabelPrefix="$"
-                        yAxisTextStyle={{
-                            color: ColorConstants.BLACK2,
-                            fontFamily: Fonts.mulishRegular,
-                            fontSize: 12,
-                        }}
-                        xAxisLabelTextStyle={{
-                            fontSize: 12,
-                            color: ColorConstants.BLACK2,
-                            fontFamily: Fonts.mulishRegular,
-                        }}
+                            /* Axis */
+                            xAxisThickness={1}
+                            yAxisThickness={1}
+                            xAxisColor="#E0E0E0"
+                            yAxisColor="#E0E0E0"
+                            yAxisLabelPrefix="$"
+                            yAxisTextStyle={{
+                                color: ColorConstants.BLACK2,
+                                fontFamily: Fonts.mulishRegular,
+                                fontSize: 12,
+                            }}
+                            xAxisLabelTextStyle={{
+                                fontSize: 12,
+                                color: ColorConstants.BLACK2,
+                                fontFamily: Fonts.mulishRegular,
+                            }}
 
-                        noOfSections={4}
-                    />
-                </View>
-            </View>
-
-            {/* Service Distribution Pie Chart */}
-            <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Service Distribution</Text>
-                <Text style={styles.chartSubtitle}>By service type</Text>
-                <View style={{ marginTop: 20, alignItems: 'center' }}>
-                    <PieChart
-                        data={pieData}
-                        donut={false} // Screenshot is a full pie
-                        radius={100}
-                        innerRadius={0}
-                        showText
-                        textColor="white"
-                        textSize={12}
-                    />
-                </View>
-                {/* Legend */}
-                <View style={styles.legendContainer}>
-                    <View style={styles.legendRow}>
-                        {analyticsData?.service_distribution?.map((item: any, index: number) => (
-                            <React.Fragment key={index}>
-                                <View style={[styles.legendDot, { backgroundColor: item.color }, index > 0 && { marginLeft: 10 }]} />
-                                <Text style={[styles.legendText, { color: item.color }]}>{item.service_type}</Text>
-                            </React.Fragment>
-                        ))}
+                            noOfSections={4}
+                        />
                     </View>
                 </View>
-            </View>
+            )}
+
+            {/* Service Distribution Pie Chart */}
+            {!isAnalyticsForbidden && (
+                <View style={styles.chartCard}>
+                    <Text style={styles.chartTitle}>Service Distribution</Text>
+                    <Text style={styles.chartSubtitle}>By service type</Text>
+                    <View style={{ marginTop: 20, alignItems: 'center' }}>
+                        <PieChart
+                            data={pieData}
+                            donut={false} // Screenshot is a full pie
+                            radius={100}
+                            innerRadius={0}
+                            showText
+                            textColor="white"
+                            textSize={12}
+                        />
+                    </View>
+                    {/* Legend */}
+                    <View style={styles.legendContainer}>
+                        <View style={styles.legendRow}>
+                            {analyticsData?.service_distribution?.map((item: any, index: number) => (
+                                <React.Fragment key={index}>
+                                    <View style={[styles.legendDot, { backgroundColor: item.color }, index > 0 && { marginLeft: 10 }]} />
+                                    <Text style={[styles.legendText, { color: item.color }]}>{item.service_type}</Text>
+                                </React.Fragment>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+            )}
         </View>
     );
 
@@ -263,29 +290,30 @@ export default function AnalyticsVendor() {
             <View style={[styles.chartCard, { marginHorizontal: 0 }]}>
                 <Text style={styles.chartTitle}>Monthly Growth</Text>
                 <Text style={styles.chartValue}>+{analyticsData?.engagement_stats?.monthly_growth || '0'}%</Text>
-                <View style={{ marginTop: 10, alignItems: 'center' }}>
-                    <LineChart
-                        data={lineData}
-                        width={screenWidth - 80}
-                        height={200}
-                        color="#3B82F6"
-                        thickness={2}
-                        startFillColor="rgba(59, 130, 246, 0.3)"
-                        endFillColor="rgba(59, 130, 246, 0.05)"
-                        startOpacity={0.9}
-                        endOpacity={0.2}
-                        initialSpacing={10}
-                        noOfSections={4}
-                        yAxisThickness={0}
-                        xAxisThickness={0}
-                        hideRules
-                        hideDataPoints
-                        areaChart
-                        curved
-                        xAxisLabelTextStyle={{ color: ColorConstants.DARK_CYAN, fontSize: 10, fontFamily: Fonts.mulishRegular }}
-                        yAxisTextStyle={{ color: ColorConstants.DARK_CYAN, fontSize: 10, fontFamily: Fonts.mulishRegular }}
-                    />
-                </View>
+                {!isAnalyticsForbidden &&
+                    <View style={{ marginTop: 10, alignItems: 'center' }}>
+                        <LineChart
+                            data={lineData}
+                            width={screenWidth - 80}
+                            height={200}
+                            color="#3B82F6"
+                            thickness={2}
+                            startFillColor="rgba(59, 130, 246, 0.3)"
+                            endFillColor="rgba(59, 130, 246, 0.05)"
+                            startOpacity={0.9}
+                            endOpacity={0.2}
+                            initialSpacing={10}
+                            noOfSections={4}
+                            yAxisThickness={0}
+                            xAxisThickness={0}
+                            hideRules
+                            hideDataPoints
+                            areaChart
+                            curved
+                            xAxisLabelTextStyle={{ color: ColorConstants.DARK_CYAN, fontSize: 10, fontFamily: Fonts.mulishRegular }}
+                            yAxisTextStyle={{ color: ColorConstants.DARK_CYAN, fontSize: 10, fontFamily: Fonts.mulishRegular }}
+                        />
+                    </View>}
             </View>
         </View>
     );
@@ -297,7 +325,7 @@ export default function AnalyticsVendor() {
             {/* Pipeline List */}
             {renewalData.length === 0 ? (
                 <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>No renewal pipeline data available</Text>
+                    <Text style={styles.emptyStateText}>No contracts up for renewal at this time.</Text>
                 </View>
             ) : (
                 renewalData.map((item: any) => (
@@ -333,7 +361,20 @@ export default function AnalyticsVendor() {
                 <View style={styles.feedbackSummaryCard}>
                     <Text style={styles.fsLabel}>Average Rating</Text>
                     <Text style={styles.fsValue}>{feedbackData?.average_rating || '0'}</Text>
-                    <View style={{ flexDirection: 'row' }}>{[1, 2, 3, 4, 5].map(i => <Image key={i} source={Icons.ic_star} style={{ width: 12, height: 12, tintColor: ColorConstants.ORANGE }} />)}</View>
+                    <View style={{ flexDirection: 'row' }}>
+                        {[...Array(5)].map((_, i) => (
+                            <Image
+                                key={i}
+                                source={Icons.ic_star}
+                                style={{
+                                    width: 12,
+                                    height: 12,
+                                    tintColor: i < Math.floor(parseFloat(feedbackData?.average_rating || '0')) ? ColorConstants.ORANGE : ColorConstants.GRAY2,
+                                    marginRight: 2
+                                }}
+                            />
+                        ))}
+                    </View>
                 </View>
                 <View style={styles.feedbackSummaryCard}>
                     <Text style={styles.fsLabel}>Total Reviews</Text>
@@ -363,7 +404,7 @@ export default function AnalyticsVendor() {
                                     <Image
                                         key={i}
                                         source={Icons.ic_star}
-                                        style={{ width: 12, height: 12, tintColor: i < item.rating ? ColorConstants.ORANGE : ColorConstants.WHITE, marginRight: 2 }}
+                                        style={{ width: 12, height: 12, tintColor: i < item.rating ? ColorConstants.ORANGE : ColorConstants.GRAY2, marginRight: 2 }}
                                     />
                                 ))
                                 }
@@ -407,10 +448,10 @@ export default function AnalyticsVendor() {
                     {/* Tab Bar - Always Visible */}
                     <View style={styles.tabBarContainer}>
                         <TouchableOpacity
-                            style={[styles.tabButton, activeTab === 'Statistics' && styles.activeTabButton]}
-                            onPress={() => setActiveTab('Statistics')}
+                            style={[styles.tabButton, activeTab === 'Engagement Stats' && styles.activeTabButton]}
+                            onPress={() => setActiveTab('Engagement Stats')}
                         >
-                            <Text style={[styles.tabText, activeTab === 'Statistics' && styles.activeTabText]}>Statistics</Text>
+                            <Text style={[styles.tabText, activeTab === 'Engagement Stats' && styles.activeTabText]}>Engagement Stats</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -421,16 +462,16 @@ export default function AnalyticsVendor() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.tabButton, activeTab === 'Feedback' && styles.activeTabButton]}
-                            onPress={() => setActiveTab('Feedback')}
+                            style={[styles.tabButton, activeTab === 'Client Feedback' && styles.activeTabButton]}
+                            onPress={() => setActiveTab('Client Feedback')}
                         >
-                            <Text style={[styles.tabText, activeTab === 'Feedback' && styles.activeTabText]}>Feedback</Text>
+                            <Text style={[styles.tabText, activeTab === 'Client Feedback' && styles.activeTabText]}>Client Feedback</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {activeTab === 'Statistics' && renderStatisticsBottom()}
+                    {activeTab === 'Engagement Stats' && renderStatisticsBottom()}
                     {activeTab === 'Renewal Pipeline' && renderRenewalPipeline()}
-                    {activeTab === 'Feedback' && renderFeedback()}
+                    {activeTab === 'Client Feedback' && renderFeedback()}
 
                 </ScrollView>
             )}
@@ -458,7 +499,7 @@ const styles = StyleSheet.create({
     },
     tabButton: {
         flex: 1,
-        paddingVertical: 10, // Increased vertical padding
+        paddingVertical: 8, // Increased vertical padding
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 8,

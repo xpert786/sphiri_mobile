@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/api/apiMethods';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import Header from '@/components/Header';
@@ -9,15 +9,20 @@ import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
 import SendProposalModal from '@/modals/SendProposalModal';
 import SetServiceReminderModal from '@/modals/SetServiceReminderModal';
 import UploadClientDocumentModal from '@/modals/UploadClientDocumentModal';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -80,6 +85,14 @@ export default function ClientDetails() {
     const [loadingNotes, setLoadingNotes] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>((tab as TabType) || 'Overview');
     const [menuVisible, setMenuVisible] = useState(false);
+    const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+    const [noteInput, setNoteInput] = useState('');
+    const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+    const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+    const [deleteNoteVisible, setDeleteNoteVisible] = useState(false);
+    const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+    const [editingNoteText, setEditingNoteText] = useState('');
+    const [isUpdatingNote, setIsUpdatingNote] = useState(false);
 
     useEffect(() => {
         if (tab && ['Overview', 'Services', 'Documents', 'Notes'].includes(tab as string)) {
@@ -201,7 +214,85 @@ export default function ClientDetails() {
         } catch (error) {
             console.error("Failed to upload document:", error);
         } finally {
+            setUploadDocVisible(false);
             setLoadingDocuments(false);
+        }
+    };
+
+    const handleDeleteDocument = async () => {
+        if (!selectedDocId) return;
+        setDeleteDocVisible(false);
+        setLoadingDocuments(true);
+        try {
+            const response = await apiDelete(`${ApiConstants.VENDOR_DOCUMENTS}${selectedDocId}/`);
+            if (response.status === 200 || response.status === 204) {
+                console.log("Document deleted successfully");
+                fetchClientDocuments();
+            }
+        } catch (error) {
+            console.error("Failed to delete document:", error);
+        } finally {
+            setLoadingDocuments(false);
+            setSelectedDocId(null);
+        }
+    };
+
+    const handleAddNote = async () => {
+        if (!noteInput.trim()) {
+            Alert.alert('Error', 'Please enter a note');
+            return;
+        }
+        setIsSubmittingNote(true);
+        try {
+            const response = await apiPost(`${ApiConstants.VENDOR_CLIENT_NOTES}${id}/notes/`, {
+                note: noteInput.trim(),
+                client: Number(id)
+            });
+            if (response.status === 200 || response.status === 201) {
+                setNoteInput('');
+                fetchClientNotes();
+            }
+        } catch (error) {
+            console.error("Failed to add note:", error);
+        } finally {
+            setIsSubmittingNote(false);
+        }
+    };
+
+    const handleDeleteNote = async () => {
+        if (!selectedNoteId) return;
+        setDeleteNoteVisible(false);
+        setLoadingNotes(true);
+        try {
+            const response = await apiDelete(`${ApiConstants.VENDOR_NOTES}${selectedNoteId}/`);
+            if (response.status === 200 || response.status === 204) {
+                fetchClientNotes();
+            }
+        } catch (error) {
+            console.error("Failed to delete note:", error);
+        } finally {
+            setLoadingNotes(false);
+            setSelectedNoteId(null);
+        }
+    };
+
+    const handleUpdateNote = async () => {
+        if (!editingNoteId || !editingNoteText.trim()) return;
+        setIsUpdatingNote(true);
+        try {
+            const response = await apiPatch(`${ApiConstants.VENDOR_NOTES}${editingNoteId}/`, {
+                note: editingNoteText.trim()
+            });
+            if (response.status === 200) {
+                setEditingNoteId(null);
+                setEditingNoteText('');
+                fetchClientNotes();
+            }
+        } catch (error) {
+            console.error("Failed to update note:", error);
+            Alert.alert('Error', 'Failed to update note. Please try again.');
+        } finally {
+            setIsUpdatingNote(false);
         }
     };
 
@@ -265,20 +356,31 @@ export default function ClientDetails() {
                         ) : documents.length > 0 ? (
                             documents.map((item) => (
                                 <View key={item.id} style={styles.documentCard}>
-                                    <View>
-                                        <Text style={styles.docName}>{item.file_name}</Text>
+                                    <View style={{ flex: 1, marginRight: 12 }}>
+                                        <Text style={styles.docName} numberOfLines={1}>{item.file_name}</Text>
                                         <Text style={styles.docInfo}>{item.document_type_display} • {formatDate(item.formatted_date)}</Text>
                                     </View>
-                                    <TouchableOpacity
-                                        style={styles.downloadButton}
-                                        onPress={() => {
-                                            if (item.file_url) {
-                                                handleDownload(item.file_url);
-                                            }
-                                        }}
-                                    >
-                                        <Image source={Icons.ic_download_bottom} />
-                                    </TouchableOpacity>
+                                    <View style={styles.actionButtons}>
+                                        <TouchableOpacity
+                                            style={styles.downloadButton}
+                                            onPress={() => {
+                                                if (item.file_url) {
+                                                    handleDownload(item.file_url);
+                                                }
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="download" size={20} color={ColorConstants.DARK_CYAN} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.downloadButton, { marginLeft: 8 }]}
+                                            onPress={() => {
+                                                setSelectedDocId(item.id);
+                                                setDeleteDocVisible(true);
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="delete-outline" size={20} color={ColorConstants.DARK_CYAN} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             ))
                         ) : (
@@ -293,21 +395,117 @@ export default function ClientDetails() {
                     <View style={styles.tabContent}>
                         <Text style={styles.sectionTitle}>Notes</Text>
 
-                        {loadingNotes ? (
-                            <ActivityIndicator size="small" color={ColorConstants.DARK_CYAN} style={{ marginTop: 20 }} />
-                        ) : notes.length > 0 ? (
-                            notes.map((item) => (
-                                <View key={item.id} style={styles.notesCard}>
-                                    <Text style={styles.notesText}>
-                                        {item.note}
-                                    </Text>
+                        <View style={{ marginTop: 20 }}>
+                            {loadingNotes ? (
+                                <ActivityIndicator size="small" color={ColorConstants.DARK_CYAN} />
+                            ) : notes.length > 0 ? (
+                                notes.map((item) => (
+                                    <View key={item.id} style={styles.notesCard}>
+                                        <View style={styles.noteHeader}>
+                                            <View style={{ flex: 1 }}>
+                                                {editingNoteId === item.id ? (
+                                                    <View style={styles.editNoteInputWrapper}>
+                                                        <TextInput
+                                                            style={styles.noteTextInput}
+                                                            value={editingNoteText}
+                                                            onChangeText={setEditingNoteText}
+                                                            multiline
+                                                            textAlignVertical="top"
+                                                        />
+                                                    </View>
+                                                ) : (
+                                                    <Text style={styles.notesText}>
+                                                        {item.note}
+                                                    </Text>
+                                                )}
+                                            </View>
+                                            <View style={styles.noteActions}>
+                                                <TouchableOpacity onPress={() => {
+                                                    setEditingNoteId(item.id);
+                                                    setEditingNoteText(item.note);
+                                                }}>
+                                                    <Text style={[styles.editBtnText, editingNoteId === item.id && { color: ColorConstants.GRAY }]}>Edit</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        setSelectedNoteId(item.id);
+                                                        setDeleteNoteVisible(true);
+                                                    }}
+                                                >
+                                                    <Text style={styles.deleteBtnText}>Delete</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+
+                                        {editingNoteId === item.id ? (
+                                            <View style={styles.inlineEditBtnContainer}>
+                                                <TouchableOpacity
+                                                    style={styles.inlineSaveBtn}
+                                                    onPress={handleUpdateNote}
+                                                    disabled={isUpdatingNote}
+                                                >
+                                                    {isUpdatingNote ? (
+                                                        <ActivityIndicator size="small" color={ColorConstants.WHITE} />
+                                                    ) : (
+                                                        <Text style={styles.inlineSaveBtnText}>Save</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.inlineCancelBtn}
+                                                    onPress={() => {
+                                                        setEditingNoteId(null);
+                                                        setEditingNoteText('');
+                                                    }}
+                                                >
+                                                    <Text style={styles.inlineCancelBtnText}>Cancel</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : (
+                                            <Text style={styles.noteDate}>
+                                                {(() => {
+                                                    const date = new Date(item.created_at);
+                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                    const year = date.getFullYear();
+                                                    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                                                    return `${day}/${month}/${year} ${time}`;
+                                                })()}
+                                            </Text>
+                                        )}
+                                    </View>
+                                ))
+                            ) : (
+                                <View style={styles.emptyNoteState}>
+                                    <Text style={styles.emptyNoteStateText}>No notes are available at the moment. Please add your first note below.</Text>
                                 </View>
-                            ))
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No notes found for this client.</Text>
+                            )}
+
+                            <View style={styles.addNoteContainer}>
+                                <Text style={styles.addNoteTitle}>Add New Note</Text>
+                                <View style={styles.noteInputWrapper}>
+                                    <TextInput
+                                        style={styles.noteTextInput}
+                                        placeholder="Enter your note here..."
+                                        placeholderTextColor={ColorConstants.GRAY}
+                                        multiline
+                                        value={noteInput}
+                                        onChangeText={setNoteInput}
+                                        textAlignVertical="top"
+                                    />
+                                </View>
+                                <TouchableOpacity
+                                    style={[styles.addNoteBtn, !noteInput.trim() && { opacity: 0.6 }]}
+                                    onPress={handleAddNote}
+                                    disabled={isSubmittingNote}
+                                >
+                                    {isSubmittingNote ? (
+                                        <ActivityIndicator size="small" color={ColorConstants.WHITE} />
+                                    ) : (
+                                        <Text style={styles.addNoteBtnText}>Add Note</Text>
+                                    )}
+                                </TouchableOpacity>
                             </View>
-                        )}
+                        </View>
                     </View>
                 );
             default:
@@ -319,133 +517,136 @@ export default function ClientDetails() {
         <SafeAreaView style={styles.container}>
             <StatusBar backgroundColor={ColorConstants.WHITE} barStyle="dark-content" />
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-                <Header
-                    title="Clients"
-                    subtitle="Manage your client relationships"
-                    containerStyle={{ paddingTop: 10 }}
-                    showBackArrow={true}
-                    tapOnBack={() => router.back()}
-                />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <ScrollView contentContainerStyle={{ paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
+                    <Header
+                        title="Clients"
+                        subtitle="Manage your client relationships"
+                        containerStyle={{ paddingTop: 10 }}
+                        showBackArrow={true}
+                        tapOnBack={() => router.back()}
+                    />
 
-                {loading ? (
-                    <ActivityIndicator size="large" color={ColorConstants.DARK_CYAN} style={{ marginTop: 40 }} />
-                ) : (
-                    <View style={styles.data}>
-                        {/* Client Header */}
-                        <View style={styles.headerRow}>
-                            <View>
-                                <Text style={styles.clientName}>{clientData?.name || 'Unknown'}</Text>
-                                <Text style={styles.clientType}>Client</Text>
-                            </View>
-                            <View style={{ position: 'relative' }}>
-                                <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
-                                    <Image source={Icons.ic_dots_vertical} style={styles.menuIcon} />
-                                </TouchableOpacity>
-                                {menuVisible && (
-                                    <View style={styles.menuPopover}>
-                                        <TouchableOpacity
-                                            style={styles.menuItem}
-                                            onPress={() => handleMenuAction('proposal')}
-                                        >
-                                            <Text style={styles.menuText}>Send Proposal</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.menuItem}
-                                            onPress={() => handleMenuAction('reminder')}
-                                        >
-                                            <Text style={styles.menuTextNormal}>Set Reminder</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.menuItem}
-                                            onPress={() => handleMenuAction('upload')}
-                                        >
-                                            <Text style={styles.menuTextNormal}>Upload Documents</Text>
-                                        </TouchableOpacity>
-                                        {/* <TouchableOpacity
+                    {loading ? (
+                        <ActivityIndicator size="large" color={ColorConstants.DARK_CYAN} style={{ marginTop: 40 }} />
+                    ) : (
+                        <View style={styles.data}>
+                            {/* Client Header */}
+                            <View style={styles.headerRow}>
+                                <View>
+                                    <Text style={styles.clientName}>{clientData?.name || 'Unknown'}</Text>
+                                    <Text style={styles.clientType}>Client</Text>
+                                </View>
+                                <View style={{ position: 'relative' }}>
+                                    <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
+                                        <Image source={Icons.ic_dots_vertical} style={styles.menuIcon} />
+                                    </TouchableOpacity>
+                                    {menuVisible && (
+                                        <View style={styles.menuPopover}>
+                                            <TouchableOpacity
+                                                style={styles.menuItem}
+                                                onPress={() => handleMenuAction('proposal')}
+                                            >
+                                                <Text style={styles.menuText}>Send Proposal</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.menuItem}
+                                                onPress={() => handleMenuAction('reminder')}
+                                            >
+                                                <Text style={styles.menuTextNormal}>Set Reminder</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.menuItem}
+                                                onPress={() => handleMenuAction('upload')}
+                                            >
+                                                <Text style={styles.menuTextNormal}>Upload Documents</Text>
+                                            </TouchableOpacity>
+                                            {/* <TouchableOpacity
                                             style={styles.menuItem}
                                             onPress={() => handleMenuAction('delete')}
                                         >
                                             <Text style={styles.menuTextNormal}>Remove Document</Text>
                                         </TouchableOpacity> */}
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+
+                            {/* Quick Info Cards */}
+                            <View style={styles.infoGrid}>
+                                <View style={styles.infoCard}>
+                                    <View style={styles.iconBox}>
+                                        <MaterialCommunityIcons name="email-outline" size={18} color={ColorConstants.WHITE} />
                                     </View>
-                                )}
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.cardLabel}>Email</Text>
+                                        <Text style={styles.cardValue}>{clientData?.email || 'N/A'}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.infoCard}>
+                                    <View style={styles.iconBox}>
+                                        <MaterialCommunityIcons name="star-outline" size={18} color={ColorConstants.WHITE} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.cardLabel}>Rating</Text>
+                                        <Text style={styles.cardValue}>{`${clientData?.rating.toFixed(0)}/5`}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.infoCard}>
+                                    <View style={styles.iconBox}>
+                                        <MaterialCommunityIcons name="phone" size={18} color={ColorConstants.WHITE} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.cardLabel}>Phone</Text>
+                                        <Text style={styles.cardValue}>{clientData?.phone || 'N/A'}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.infoCard}>
+                                    <View style={styles.iconBox}>
+                                        <MaterialCommunityIcons name="map-marker-outline" size={18} color={ColorConstants.WHITE} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.cardLabel}>Address</Text>
+                                        <Text style={styles.cardValue}>{clientData?.address || 'N/A'}</Text>
+                                    </View>
+                                </View>
                             </View>
-                        </View>
 
-                        {/* Quick Info Cards */}
-                        <View style={styles.infoGrid}>
-                            <View style={styles.infoCard}>
-                                <View style={styles.iconBox}>
-                                    <Image source={Icons.ic_mail} style={styles.cardIcon} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.cardLabel}>Email</Text>
-                                    <Text style={styles.cardValue}>{clientData?.email || 'N/A'}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.infoCard}>
-                                <View style={styles.iconBox}>
-                                    <Image source={Icons.ic_star} style={styles.cardIcon} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.cardLabel}>Rating</Text>
-                                    <Text style={styles.cardValue}>{`${clientData?.rating.toFixed(0)}/5`}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.infoCard}>
-                                <View style={styles.iconBox}>
-                                    <Image source={Icons.ic_phonecall} style={styles.cardIcon} resizeMode='contain' />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.cardLabel}>Phone</Text>
-                                    <Text style={styles.cardValue}>{clientData?.phone || 'N/A'}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.infoCard}>
-                                <View style={styles.iconBox}>
-                                    <Image source={Icons.ic_location} style={styles.cardIcon} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.cardLabel}>Address</Text>
-                                    <Text style={styles.cardValue}>{clientData?.address || 'N/A'}</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Tabs */}
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.tabScrollContainer}
-                        >
-                            {(['Overview', 'Services', 'Documents', 'Notes'] as TabType[]).map((tab) => (
-                                <TouchableOpacity
-                                    key={tab}
-                                    style={[
-                                        styles.tabButton,
-                                        activeTab === tab && styles.activeTabButton,
-                                    ]}
-                                    onPress={() => setActiveTab(tab)}
-                                >
-                                    <Text
+                            {/* Tabs */}
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.tabScrollContainer}
+                            >
+                                {(['Overview', 'Services', 'Documents', 'Notes'] as TabType[]).map((tab) => (
+                                    <TouchableOpacity
+                                        key={tab}
                                         style={[
-                                            styles.tabText,
-                                            activeTab === tab && styles.activeTabText,
+                                            styles.tabButton,
+                                            activeTab === tab && styles.activeTabButton,
                                         ]}
+                                        onPress={() => setActiveTab(tab)}
                                     >
-                                        {tab}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                                        <Text
+                                            style={[
+                                                styles.tabText,
+                                                activeTab === tab && styles.activeTabText,
+                                            ]}
+                                        >
+                                            {tab}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
 
-                        {/* Action Buttons Float */}
-                        {(activeTab === 'Services' || activeTab === 'Documents') &&
+                            {/* Action Buttons Float */}
+                            {/* {(activeTab === 'Services' || activeTab === 'Documents') &&
                             <View style={styles.actionFloat}>
-                                {/* <TouchableOpacity style={[styles.floatButton, { backgroundColor: ColorConstants.PRIMARY_BROWN }]}>
-                                    <Image source={Icons.ic_send_white} style={styles.floatIcon} />
-                                </TouchableOpacity> */}
+                        
                                 <TouchableOpacity
                                     style={[styles.floatButton, { backgroundColor: ColorConstants.WHITE, borderWidth: 1, borderColor: ColorConstants.GRAY3 }]}
                                     onPress={() => {
@@ -458,16 +659,17 @@ export default function ClientDetails() {
                                 >
                                     <Image source={Icons.ic_eye} style={[styles.floatIcon, { tintColor: ColorConstants.BLACK }]} />
                                 </TouchableOpacity>
-                            </View>}
+                            </View>} */}
 
-                        {/* Tab Content */}
-                        <View style={styles.contentContainer}>
-                            {renderTabContent()}
+                            {/* Tab Content */}
+                            <View style={styles.contentContainer}>
+                                {renderTabContent()}
+                            </View>
+
                         </View>
-
-                    </View>
-                )}
-            </ScrollView>
+                    )}
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             {/* Modals */}
             <SendProposalModal
@@ -493,9 +695,21 @@ export default function ClientDetails() {
             />
             <DeleteConfirmationModal
                 visible={deleteDocVisible}
-                onClose={() => setDeleteDocVisible(false)}
-                onDelete={() => setDeleteDocVisible(false)}
+                onClose={() => {
+                    setDeleteDocVisible(false);
+                    setSelectedDocId(null);
+                }}
+                onDelete={handleDeleteDocument}
                 title="Are you sure you want to remove this document?"
+            />
+            <DeleteConfirmationModal
+                visible={deleteNoteVisible}
+                onClose={() => {
+                    setDeleteNoteVisible(false);
+                    setSelectedNoteId(null);
+                }}
+                onDelete={handleDeleteNote}
+                title="Are you sure you want to remove this note?"
             />
         </SafeAreaView >
     );
@@ -599,13 +813,6 @@ const styles = StyleSheet.create({
         backgroundColor: ColorConstants.DARK_CYAN,
         alignItems: 'center',
         justifyContent: 'center',
-
-    },
-    cardIcon: {
-        width: 16,
-        height: 16,
-        tintColor: ColorConstants.WHITE,
-        resizeMode: 'contain'
     },
     cardLabel: {
         fontFamily: Fonts.mulishRegular,
@@ -740,6 +947,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E5E7EB',
     },
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     docName: {
         fontFamily: Fonts.ManropeMedium,
         fontSize: 14,
@@ -755,21 +966,141 @@ const styles = StyleSheet.create({
         padding: 8,
         backgroundColor: '#E5E7EB', // slightly darker for button
         borderRadius: 8,
-    },
-    downloadIcon: {
-        width: 16,
-        height: 16,
-        tintColor: ColorConstants.GRAY,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     // Notes Styles
     notesCard: {
-        marginTop: 10
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    noteHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    noteActions: {
+        flexDirection: 'row',
+        gap: 12,
     },
     notesText: {
+        flex: 1,
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: ColorConstants.BLACK2,
+        marginRight: 10,
+    },
+    editBtnText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 13,
+        color: ColorConstants.GRAY,
+    },
+    deleteBtnText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 13,
+        color: '#F55151',
+    },
+    noteDate: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 11,
+        color: ColorConstants.GRAY,
+    },
+    emptyNoteState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 30,
+    },
+    emptyNoteStateText: {
         fontFamily: Fonts.mulishRegular,
         fontSize: 14,
-        color: ColorConstants.DARK_CYAN,
-        lineHeight: 22,
+        color: ColorConstants.GRAY,
+        textAlign: 'center',
+    },
+    editNoteInputWrapper: {
+        borderWidth: 2,
+        borderColor: '#9E7762',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+        minHeight: 120,
+    },
+    inlineEditBtnContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
+    inlineSaveBtn: {
+        backgroundColor: '#9E7762',
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    inlineSaveBtnText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 14,
+        color: ColorConstants.WHITE,
+    },
+    inlineCancelBtn: {
+        backgroundColor: '#F3F4F6',
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    inlineCancelBtnText: {
+        fontFamily: Fonts.ManropeMedium,
+        fontSize: 14,
+        color: ColorConstants.BLACK2,
+    },
+    addNoteContainer: {
+        backgroundColor: ColorConstants.WHITE,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: ColorConstants.GRAY3,
+        marginTop: 10,
+    },
+    addNoteTitle: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 16,
+        color: ColorConstants.BLACK2,
+        marginBottom: 12,
+    },
+    noteInputWrapper: {
+        borderWidth: 1,
+        borderColor: ColorConstants.GRAY3,
+        borderRadius: 12,
+        padding: 12,
+        minHeight: 120,
+        marginBottom: 16,
+    },
+    noteTextInput: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 14,
+        color: ColorConstants.BLACK2,
+        flex: 1,
+    },
+    addNoteBtn: {
+        backgroundColor: ColorConstants.PRIMARY_BROWN, // From screenshot (light brown/tan)
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    addNoteBtnText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 14,
+        color: ColorConstants.WHITE,
     },
     // Actions Float
     actionFloat: {

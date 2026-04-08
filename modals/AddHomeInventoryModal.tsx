@@ -5,12 +5,14 @@ import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { MaterialIcons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
     Image,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -37,7 +39,7 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
     const [categoryName, setCategoryName] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [location, setLocation] = useState('');
-    const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
+    const [purchaseDate, setPurchaseDate] = useState<Date>(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [estimatedValue, setEstimatedValue] = useState('');
     const [serialNumber, setSerialNumber] = useState('');
@@ -381,7 +383,7 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
         setSelectedSubCategory(null);
         setSelectedDetailedCategory(null);
         setLocation('');
-        setPurchaseDate(null);
+        setPurchaseDate(new Date());
         setEstimatedValue('');
         setSerialNumber('');
         setDescription('');
@@ -406,7 +408,10 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
             animationType="slide"
             onRequestClose={handleClose}
         >
-            <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.modalOverlay}
+            >
                 <View style={styles.modalContainer}>
                     <View style={styles.viewContainer}>
                         <View style={styles.header}>
@@ -452,24 +457,21 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
                                         activeOpacity={0.8}
                                     >
                                         <Text style={[styles.inputText, { color: purchaseDate ? ColorConstants.BLACK2 : ColorConstants.GRAY }]}>
-                                            {purchaseDate ? purchaseDate.toLocaleDateString() : 'Select Purchase Date'}
+                                            {purchaseDate ? `${String(purchaseDate.getMonth() + 1).padStart(2, '0')}/${String(purchaseDate.getDate()).padStart(2, '0')}/${purchaseDate.getFullYear()}` : 'Select Purchase Date'}
                                         </Text>
                                         <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                                     </TouchableOpacity>
-                                    {showDatePicker && (
-                                        <DateTimePicker
-                                            value={purchaseDate || new Date()}
-                                            mode="date"
-                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                            onChange={(event, selectedDate) => {
-                                                setShowDatePicker(false);
-                                                if (selectedDate) {
-                                                    setPurchaseDate(selectedDate);
-                                                    if (errors.purchaseDate) setErrors(prev => ({ ...prev, purchaseDate: '' }));
-                                                }
-                                            }}
-                                        />
-                                    )}
+                                    <CustomDatePicker
+                                        show={showDatePicker}
+                                        value={purchaseDate || new Date()}
+                                        onChange={(event, selectedDate) => {
+                                            if (selectedDate) {
+                                                setPurchaseDate(selectedDate);
+                                                if (errors.purchaseDate) setErrors(prev => ({ ...prev, purchaseDate: '' }));
+                                            }
+                                        }}
+                                        onClose={() => setShowDatePicker(false)}
+                                    />
                                     {errors.purchaseDate ? <Text style={styles.errorText}>{errors.purchaseDate}</Text> : null}
                                 </View>
 
@@ -683,7 +685,7 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
                         </View>
                     </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
@@ -699,7 +701,7 @@ const styles = StyleSheet.create({
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 24,
         overflow: 'hidden',
-        maxHeight: '75%',
+        maxHeight: Dimensions.get('window').height * 0.9,
     },
     viewContainer: {
         padding: 24,
@@ -923,7 +925,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     categoryGridItem: {
-        width: '47.5%',
+        width: '46.5%',
         paddingVertical: 12,
         paddingHorizontal: 10,
         borderWidth: 1,
@@ -944,7 +946,7 @@ const styles = StyleSheet.create({
     },
     categoryGridText: {
         fontFamily: Fonts.ManropeMedium,
-        fontSize: 13,
+        fontSize: 11,
         color: '#374151',
     },
     selectedCategoryGridText: {
@@ -956,7 +958,6 @@ const styles = StyleSheet.create({
         tintColor: ColorConstants.WHITE,
     },
     subcategoryWrapper: {
-        marginTop: 20,
     },
     subcategoryTitle: {
         fontFamily: Fonts.ManropeSemiBold,
@@ -992,7 +993,7 @@ const styles = StyleSheet.create({
     },
     subCatChipText: {
         fontFamily: Fonts.ManropeMedium,
-        fontSize: 14,
+        fontSize: 11,
         color: '#4B5563',
     },
     activeSubCatChipText: {

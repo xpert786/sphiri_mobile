@@ -1,14 +1,18 @@
-import { apiGet, apiPatch } from '@/api/apiMethods';
+import { apiGet, apiPatch, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
+import { Icons } from '@/assets';
 import CustomSwitch from '@/components/CustomSwitch';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { handleDownload } from '@/constants/Helper';
+import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -19,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 export default function TrusteeSettings() {
+    const router = useRouter();
+    const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
     const [emailEnabled, setEmailEnabled] = useState(false);
     const [pushEnabled, setPushEnabled] = useState(false);
     const [smsEnabled, setSmsEnabled] = useState(false);
@@ -107,6 +113,29 @@ export default function TrusteeSettings() {
         }
     };
 
+    const handleDeleteAccount = async () => {
+        try {
+            const response = await apiPost(ApiConstants.DELETE_ACCOUNT, { role: 'family_member' });
+            if (response.status === 200 || response.status === 204) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Account Deleted',
+                    text2: 'Your account has been deleted successfully.',
+                });
+                setShowDeleteAccountModal(false);
+                // Navigate to Splash screen
+                router.replace('/(root)/Splash');
+            }
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete account. Please try again.',
+            });
+        }
+    };
+
     const auditData = [
         { action: 'Viewed', resource: 'Home Insurance Policy', date: '2024-01-10 14:30' },
         { action: 'Downloaded', resource: 'Property Deed', date: '2024-01-09 10:15' },
@@ -177,6 +206,37 @@ export default function TrusteeSettings() {
                             </TouchableOpacity>
 
                         </View>
+
+                        {/* Danger Zone Section */}
+                        <View style={styles.dangerZoneCard}>
+                            <View style={styles.dangerZoneContent}>
+                                <View style={styles.dangerZoneHeader}>
+                                    <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+                                    <Text style={styles.dangerZoneSubtitle}>Permanent actions that cannot be undone</Text>
+                                </View>
+
+                                <View style={styles.dangerItemRow}>
+                                    <View style={styles.dangerItemInfo}>
+                                        <Text style={styles.dangerItemTitle}>Delete Account</Text>
+                                        <Text style={styles.dangerItemSubtitle}>Permanently remove your account and all associated data from Sphiri.</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.deleteAccountBtn}
+                                        onPress={() => setShowDeleteAccountModal(true)}
+                                    >
+                                        <Text style={styles.deleteAccountBtnText}>Delete Account</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                            <Image style={styles.dangerWatermark} source={Icons.ic_warn} />
+                        </View>
+
+                        <DeleteConfirmationModal
+                            visible={showDeleteAccountModal}
+                            onClose={() => setShowDeleteAccountModal(false)}
+                            onDelete={handleDeleteAccount}
+                            title="Are you sure you want to delete your account?"
+                        />
                     </>
                 )}
 
@@ -330,6 +390,76 @@ const styles = StyleSheet.create({
         width: 200,
         alignItems: "center",
         justifyContent: "center",
+    },
+    dangerZoneCard: {
+        backgroundColor: '#FEF2F2',
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+        borderRadius: 16,
+        padding: 20,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    dangerZoneContent: {
+        zIndex: 1,
+    },
+    dangerZoneHeader: {
+        marginBottom: 20,
+    },
+    dangerZoneTitle: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 20,
+        color: '#B91C1C',
+        marginBottom: 6,
+    },
+    dangerZoneSubtitle: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 14,
+        color: '#EF4444',
+    },
+    dangerItemRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    dangerItemInfo: {
+        flex: 1,
+        marginRight: 16,
+    },
+    dangerItemTitle: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 14,
+        color: ColorConstants.BLACK2,
+        marginBottom: 4,
+    },
+    dangerItemSubtitle: {
+        fontFamily: Fonts.mulishRegular,
+        fontSize: 12,
+        color: '#6B7280',
+        lineHeight: 18,
+    },
+    deleteAccountBtn: {
+        backgroundColor: '#EF4444',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 10,
+    },
+    deleteAccountBtnText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 13,
+        color: ColorConstants.WHITE,
+    },
+    dangerWatermark: {
+        position: 'absolute',
+        right: -10,
+        top: 10,
+        width: 120,
+        height: 120,
+        opacity: 0.05,
+        tintColor: '#B91C1C',
+        zIndex: 0,
+        transform: [{ rotate: '15deg' }],
     },
 
 });

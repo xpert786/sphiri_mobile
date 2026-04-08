@@ -72,23 +72,38 @@ const CustomTextInput: React.FC<CustomTextInputProps> = ({
           </View>
         )}
 
-        <TextInput
-          style={[
-            styles.input,
-            multiline && multiStyles
-          ]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={ColorConstants.GRAY_50}
-          secureTextEntry={secureTextEntry && !showPassword}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
-          maxLength={maxLength}
-          multiline={multiline}
-          textAlignVertical={multiline ? 'top' : 'center'}
-          editable={editable}
-        />
+        {editable === false ? (
+          <Text
+            style={[
+              styles.input,
+              multiline && multiStyles,
+              !value && { color: ColorConstants.GRAY_50 },
+              { textAlignVertical: multiline ? 'top' : 'center' }
+            ]}
+            numberOfLines={multiline ? undefined : 1}
+            ellipsizeMode={multiline ? undefined : "tail"}
+          >
+            {value || placeholder}
+          </Text>
+        ) : (
+          <TextInput
+            style={[
+              styles.input,
+              multiline && multiStyles
+            ]}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={ColorConstants.GRAY_50}
+            secureTextEntry={secureTextEntry && !showPassword}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize}
+            maxLength={maxLength}
+            multiline={multiline}
+            textAlignVertical={multiline ? 'top' : 'center'}
+            editable={editable}
+          />
+        )}
         {showPasswordToggle && onTogglePassword && (
           <TouchableOpacity style={styles.eyeIconContainer} onPress={onTogglePassword}>
             <Image
@@ -153,7 +168,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eyeIconContainer: {
-    padding: 4,
+    paddingLeft: 10,
+    paddingRight: 2,
   },
   eyeIcon: {
     width: 16,

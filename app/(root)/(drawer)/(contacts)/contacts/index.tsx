@@ -13,7 +13,7 @@ import AddContactModal from '@/modals/AddContactModal';
 import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
 import ShareContactModal from '@/modals/ShareContactModal';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     BackHandler,
@@ -60,7 +60,8 @@ export type Contact = {
     website: string;
     emergency_contact: string;
     notes?: string;
-    category?: string;
+    category?: any;
+    global_tags?: { id: number; name: string; value: number; label: string }[];
     properties?: { id: number; name: string; full_address: string }[];
 };
 
@@ -78,15 +79,16 @@ type ActionMenu = {
 };
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmallDevice = SCREEN_WIDTH < 380;
 
 
 export default function Contacts() {
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [addModalVisible, setAddModalVisible] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState('All categories');
-    const [selectedTag, setSelectedTag] = useState('All Tags');
-    const [selectedProperty, setSelectedProperty] = useState('All Properties');
+    const [selectedCategory, setSelectedCategory] = useState('Categories');
+    const [selectedTag, setSelectedTag] = useState('Tags');
+    const [selectedProperty, setSelectedProperty] = useState('Properties');
     const [searchQuery, setSearchQuery] = useState('');
     const [shareModalVisible, setShareModalVisible] = useState(false);
     const [apiCategories, setApiCategories] = useState<DropdownItem[]>([]);
@@ -110,6 +112,14 @@ export default function Contacts() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 6;
+
+    const { tab } = useLocalSearchParams();
+
+    useEffect(() => {
+        if (tab === 'vendor') {
+            setActiveTab('vendor');
+        }
+    }, [tab]);
 
     useFocusEffect(
         useCallback(() => {
@@ -177,34 +187,48 @@ export default function Contacts() {
                     const categoriesData = res.data?.seeded || res.data || [];
                     const flattened = flattenCategories(categoriesData);
                     setApiCategories([
-                        { label: 'All categories', value: 'all', originalName: 'All categories' },
+                        { label: 'Categories', value: 'all', originalName: 'Categories' },
                         ...flattened
                     ]);
                 }
             } catch (error) {
                 console.log('Error fetching categories:', error);
-                setApiCategories([{ label: 'All categories', value: 'all', originalName: 'All categories' }]);
+                setApiCategories([{ label: 'Categories', value: 'all', originalName: 'Categories' }]);
             }
         };
 
         const fetchTags = async () => {
-            const url = ApiConstants.VENDOR_TAGS
+            const url = ApiConstants.VENDOR_TAGS;
             try {
                 const res = await apiGet(url);
                 if (res.status === 200 || res.status === 201) {
-                    const tagData = res.data || [];
+                    const groups = res.data?.tags || [];
+                    let allOptions: any[] = [];
+
+                    // Flatten groups from the response as specified by the user
+                    if (Array.isArray(groups)) {
+                        groups.forEach((group: any) => {
+                            if (group.options && Array.isArray(group.options)) {
+                                allOptions = [...allOptions, ...group.options];
+                            }
+                        });
+                    } else if (Array.isArray(res.data)) {
+                        // Fallback in case the structure is a direct array (legacy support)
+                        allOptions = res.data;
+                    }
+
                     const formattedTags: DropdownItem[] = [
-                        { label: 'All Tags', value: 'all' },
-                        ...(Array.isArray(tagData) ? tagData : []).map((item: any) => ({
-                            label: item.name || item.label,
-                            value: item.id?.toString() || item.value
+                        { label: 'Tags', value: 'all' },
+                        ...allOptions.map((item: any) => ({
+                            label: item.label || item.name || 'Unknown',
+                            value: item.value?.toString() || item.id?.toString() || '0'
                         }))
                     ];
                     setApiTags(formattedTags);
                 }
             } catch (error) {
                 console.log('Error fetching tags:', error);
-                setApiTags([{ label: 'All Tags', value: 'all' }]);
+                setApiTags([{ label: 'Tags', value: 'all' }]);
             }
         };
 
@@ -213,7 +237,7 @@ export default function Contacts() {
                 const res = await apiGet(ApiConstants.PROPERTIES);
                 if (res.status === 200 || res.status === 201) {
                     const formattedProps: DropdownItem[] = [
-                        { label: 'All Properties', value: 'all' },
+                        { label: 'Properties', value: 'all' },
                         ...(res.data?.results || []).map((item: any) => ({
                             label: item.name,
                             value: item.id?.toString()
@@ -223,7 +247,7 @@ export default function Contacts() {
                 }
             } catch (error) {
                 console.log('Error fetching properties:', error);
-                setApiProperties([{ label: 'All Properties', value: 'all' }]);
+                setApiProperties([{ label: 'Properties', value: 'all' }]);
             }
         };
 
@@ -280,15 +304,22 @@ export default function Contacts() {
         });
     };
 
-    const handleSaveContact = () => {
+    const handleSaveContact = (data?: any) => {
         setAddModalVisible(false);
         setSelectedContact(null);
         setIsEditMode(false);
-        if (activeTab === 'personal') {
-            fetchPersonalContacts();
-        } else {
-            fetchVendorContacts();
+
+        // Switch to the correct tab if specified (e.g. if we created a vendor while on personal tab)
+        if (data?.contactType) {
+            setActiveTab(data.contactType);
         }
+
+        // Reset to first page so the new contact (at the top) is visible
+        setCurrentPage(1);
+
+        // Refresh both lists to be sure the latest data is shown
+        fetchPersonalContacts();
+        fetchVendorContacts();
     };
 
 
@@ -425,13 +456,13 @@ export default function Contacts() {
             contact.phone_number?.toLowerCase().includes(searchQueryLower) ||
             contact.tags?.some(tag => tag.name.toLowerCase().includes(searchQueryLower));
 
-        const matchesCategory = selectedCategory === 'All categories' ||
+        const matchesCategory = selectedCategory === 'Categories' ||
             contact.category_name === selectedCategory;
 
-        const matchesTag = selectedTag === 'All Tags' ||
+        const matchesTag = selectedTag === 'Tags' ||
             contact.tags?.some(tag => tag.name === selectedTag);
 
-        const matchesProperty = selectedProperty === 'All Properties' ||
+        const matchesProperty = selectedProperty === 'Properties' ||
             contact.properties?.some(p => p.name === selectedProperty || p.id.toString() === selectedProperty);
 
         return matchesSearch && matchesCategory && matchesTag && matchesProperty;
@@ -480,7 +511,7 @@ export default function Contacts() {
 
                     <View style={styles.contactInfo}>
                         <Text style={styles.contactName}>{capitalizeFirstLetter(item.name) || "Vendor"}</Text>
-                        {item?.category && <Text style={styles.contactCompany}>{item.category}</Text>}
+                        {item?.category_name && <Text style={styles.contactCompany}>{item.category_name}</Text>}
                         {item?.company && <Text style={styles.contactCompany}>{item.company}</Text>}
                     </View>
 
@@ -712,6 +743,7 @@ export default function Contacts() {
                         }}
                         placeholder="Select Category"
                         dropdownWidth={280}
+                        inputStyles={{ paddingRight: 8, paddingLeft: selectedCategory === 'Categories' ? 8 : 0 }}
                     />
                 </View>
 
@@ -723,6 +755,7 @@ export default function Contacts() {
                         onSelect={(val) => setSelectedTag(val)}
                         placeholder="Select Tag"
                         dropdownWidth={180}
+                        inputStyles={{ paddingHorizontal: 8 }}
                     />
                 </View>
 
@@ -733,7 +766,8 @@ export default function Contacts() {
                         value={selectedProperty}
                         onSelect={(val) => setSelectedProperty(val)}
                         placeholder="Select Property"
-                        dropdownWidth={150}
+                        dropdownWidth={130}
+                        inputStyles={{ paddingHorizontal: 8 }}
                     />
                 </View>
             </View>
@@ -855,28 +889,35 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     tabBarWrapper: {
-        marginHorizontal: 20,
+        marginHorizontal: isSmallDevice ? 12 : 20,
         flexDirection: 'row',
         backgroundColor: '#F3F4F6',
         borderRadius: 12,
-        padding: 4,
+        padding: isSmallDevice ? 3 : 5,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
     },
     tab: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
+        paddingVertical: isSmallDevice ? 10 : 12,
         borderRadius: 10,
-        gap: 8,
+        gap: isSmallDevice ? 4 : 10,
     },
     activeTab: {
         backgroundColor: ColorConstants.PRIMARY_BROWN,
+        shadowColor: ColorConstants.PRIMARY_BROWN,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     tabIcon: {
-        width: 14,
-        height: 14,
-        tintColor: '#6B7280',
+        width: isSmallDevice ? 14 : 16,
+        height: isSmallDevice ? 14 : 16,
+        tintColor: ColorConstants.GRAY,
         resizeMode: 'contain',
     },
     activeTabIcon: {
@@ -884,8 +925,9 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontFamily: Fonts.ManropeBold,
-        fontSize: 12,
-        color: '#6B7280',
+        fontSize: isSmallDevice ? 11 : 13,
+        color: ColorConstants.GRAY,
+        letterSpacing: isSmallDevice ? 0.1 : 0.3,
     },
     activeTabText: {
         color: ColorConstants.WHITE,

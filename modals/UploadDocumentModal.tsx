@@ -5,13 +5,15 @@ import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { StringConstants } from '@/constants/StringConstants';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     Image,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -88,8 +90,8 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
     // Date picker states
     const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
     const [showExpirationDatePicker, setShowExpirationDatePicker] = useState(false);
-    const [issueDate, setIssueDate] = useState(new Date());
-    const [expirationDate, setExpirationDate] = useState(new Date());
+    const [issueDate, setIssueDate] = useState<Date | null>(null);
+    const [expirationDate, setExpirationDate] = useState<Date | null>(null);
 
     // API data states
     const [apiTags, setApiTags] = useState<Tag[]>([]);
@@ -151,8 +153,8 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
             setProfessionalContactSearchQuery('');
             setSelectedFile(null);
             setFileUploaded(false);
-            setIssueDate(new Date());
-            setExpirationDate(new Date());
+            setIssueDate(null);
+            setExpirationDate(null);
         }
     }, [visible, isEditMode]);
 
@@ -182,8 +184,8 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
 
         setFormData({
             title: initialDetails.title || '',
-            property: '',
-            property_id: null,
+            property: initialDetails.property_name || '',
+            property_id: initialDetails.property_id ?? null,
             category: categoryObj?.name || '',
             category_id: categoryObj?.id ?? null,
             folder: folderObj?.name || '',
@@ -205,10 +207,16 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
         setSelectedProfessionalContacts([]);
 
         if (initialDetails.issue_date) {
-            setIssueDate(new Date(initialDetails.issue_date));
+            const dateObj = new Date(initialDetails.issue_date);
+            setIssueDate(!isNaN(dateObj.getTime()) ? dateObj : new Date());
+        } else {
+            setIssueDate(new Date());
         }
         if (initialDetails.expiration_date) {
-            setExpirationDate(new Date(initialDetails.expiration_date));
+            const dateObj = new Date(initialDetails.expiration_date);
+            setExpirationDate(!isNaN(dateObj.getTime()) ? dateObj : new Date());
+        } else {
+            setExpirationDate(new Date());
         }
 
         // Existing file is already uploaded; keep preview-only until user picks a new one
@@ -326,7 +334,6 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
 
     // Handle issue date change
     const onIssueDateChange = (event: any, selectedDate?: Date) => {
-        setShowIssueDatePicker(Platform.OS === 'ios');
         if (selectedDate) {
             setIssueDate(selectedDate);
             const formattedDate = formatDate(selectedDate);
@@ -336,7 +343,6 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
 
     // Handle expiration date change
     const onExpirationDateChange = (event: any, selectedDate?: Date) => {
-        setShowExpirationDatePicker(Platform.OS === 'ios');
         if (selectedDate) {
             setExpirationDate(selectedDate);
             const formattedDate = formatDate(selectedDate);
@@ -717,7 +723,10 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.modalOverlay}
+            >
                 <View style={styles.modalContainer}>
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
 
@@ -867,15 +876,13 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
                                     <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                                 </TouchableOpacity>
 
-                                {showIssueDatePicker && (
-                                    <DateTimePicker
-                                        value={issueDate}
-                                        mode="date"
-                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                        onChange={onIssueDateChange}
-                                        maximumDate={new Date(2100, 11, 31)}
-                                    />
-                                )}
+                                <CustomDatePicker
+                                    show={showIssueDatePicker}
+                                    value={issueDate}
+                                    onChange={onIssueDateChange}
+                                    onClose={() => setShowIssueDatePicker(false)}
+                                    maximumDate={new Date(2100, 11, 31)}
+                                />
                             </View>
 
                             <View style={styles.col}>
@@ -890,15 +897,13 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
                                     <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                                 </TouchableOpacity>
 
-                                {showExpirationDatePicker && (
-                                    <DateTimePicker
-                                        value={expirationDate}
-                                        mode="date"
-                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                        onChange={onExpirationDateChange}
-                                        maximumDate={new Date(2100, 11, 31)}
-                                    />
-                                )}
+                                <CustomDatePicker
+                                    show={showExpirationDatePicker}
+                                    value={expirationDate}
+                                    onChange={onExpirationDateChange}
+                                    onClose={() => setShowExpirationDatePicker(false)}
+                                    maximumDate={new Date(2100, 11, 31)}
+                                />
                             </View>
                         </View>
 
@@ -1195,8 +1200,8 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
 
                     </ScrollView>
                 </View>
-                {/* {renderCustomFolderModal()} */}
-            </View>
+            </KeyboardAvoidingView>
+            {/* {renderCustomFolderModal()} */}
         </Modal>
     );
 };
@@ -1212,7 +1217,7 @@ const styles = StyleSheet.create({
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 16,
         padding: 20,
-        maxHeight: '85%',
+        maxHeight: Dimensions.get('window').height * 0.9,
     },
     header: {
         flexDirection: 'row',

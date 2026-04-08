@@ -87,7 +87,7 @@ const CustomDrawerContent = (props: any) => {
 
             {/* Drawer Items */}
             {drawerItems.map((item, index) => {
-                const isActive = item.route && normalizeRoute(pathname) === normalizeRoute(item.route);
+                const isActive = item.route && normalizeRoute(pathname) === normalizeRoute(item.route as string);
 
                 return (
                     <TouchableOpacity

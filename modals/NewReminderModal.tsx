@@ -1,14 +1,16 @@
 import { apiGet } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts'; // Ensuring correct font import
-import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
     Image,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -176,9 +178,9 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
 
     const fetchTags = async () => {
         try {
-            const res = await apiGet(ApiConstants.VENDOR_TAGS);
+            const res = await apiGet(ApiConstants.DOCUMENT_TAGS);
             if (res.status === 200 || res.status === 201) {
-                const formatted = (res.data || []).map((item: any) => ({
+                const formatted = (res.data.results || []).map((item: any) => ({
                     label: item.name || item.label,
                     value: item.id?.toString() || item.value
                 }));
@@ -196,14 +198,16 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
         setErrors(prev => ({ ...prev, [field]: '' }));
     };
 
-    const formatDate = (date: Date) => {
-        const day = String(date.getDate()).padStart(2, '0');
+    const formatDate = (date: Date | null) => {
+        if (!date) return '';
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${month}/${day}/${year}`;
     };
 
-    const formatTime = (date: Date) => {
+    const formatTime = (date: Date | null) => {
+        if (!date) return '';
         let hours = date.getHours();
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const ampm = hours >= 12 ? 'PM' : 'AM';
@@ -213,21 +217,14 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
     };
 
     const getFormattedDate = (date: Date | null) => {
-        if (!date) return 'Select date';
-        return formatDate(date);
+        return date ? formatDate(date) : 'MM/DD/YYYY';
     };
 
     const getFormattedTime = (date: Date | null) => {
-        if (!date) return 'Select time';
-        return formatTime(date);
+        return date ? formatTime(date) : '-- : -- --';
     };
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
-            setShowEndDatePicker(false);
-        }
-
         if (selectedDate) {
             if (datePickerMode === 'dueDate') {
                 handleInputChange('dueDate', selectedDate);
@@ -235,24 +232,11 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                 handleInputChange('endDate', selectedDate);
             }
         }
-
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowDatePicker(false);
-            setShowEndDatePicker(false);
-        }
     };
 
     const handleTimeChange = (event: any, selectedTime?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowTimePicker(false);
-        }
-
         if (selectedTime) {
             handleInputChange('time', selectedTime);
-        }
-
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowTimePicker(false);
         }
     };
 
@@ -465,7 +449,10 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
             animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.modalOverlay}
+            >
                 <View style={styles.modalContainer}>
                     {/* Header */}
                     <View style={styles.header}>
@@ -475,7 +462,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, openDropdown === 'advanceNotice' && { paddingBottom: 170 }]}>
                         {/* Task Title */}
                         <CustomTextInput
                             label="Task Title"
@@ -510,7 +497,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                                 }}
                             >
                                 <Text style={[styles.inputText, !formData.dueDate && { color: ColorConstants.GRAY_50 }]}>
-                                    {getFormattedDate(formData.dueDate as Date | null)}
+                                    {getFormattedDate(formData.dueDate)}
                                 </Text>
                                 <Image source={Icons.ic_calendar_outline} style={styles.inputIcon} />
                             </TouchableOpacity>
@@ -525,7 +512,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                                 onPress={() => setShowTimePicker(true)}
                             >
                                 <Text style={[styles.inputText, !formData.time && { color: ColorConstants.GRAY_50 }]}>
-                                    {getFormattedTime(formData.time as Date | null)}
+                                    {getFormattedTime(formData.time)}
                                 </Text>
                                 <Image source={Icons.ic_clock} style={styles.inputIcon} />
                             </TouchableOpacity>
@@ -559,7 +546,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                                         }}
                                     >
                                         <Text style={[styles.inputText, !formData.endDate && { color: ColorConstants.GRAY_50 }]}>
-                                            {getFormattedDate(formData.endDate as Date | null)}
+                                            {getFormattedDate(formData.endDate as Date)}
                                         </Text>
                                         <Image source={Icons.ic_calendar_outline} style={styles.inputIcon} />
                                     </TouchableOpacity>
@@ -673,7 +660,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                             <Text style={styles.notificationLabel}>Email</Text>
                         </View>
 
-                        <View style={styles.notificationRow}>
+                        {/* <View style={styles.notificationRow}>
                             <Switch
                                 trackColor={{ false: '#E0E0E0', true: ColorConstants.PRIMARY_BROWN }}
                                 thumbColor={ColorConstants.WHITE}
@@ -682,7 +669,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                                 style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
                             />
                             <Text style={styles.notificationLabel}>Push Notification</Text>
-                        </View>
+                        </View> */}
 
                         <View style={[styles.notificationRow, { marginBottom: 14 }]}>
                             <Switch
@@ -717,38 +704,31 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                             </TouchableOpacity>
                         </View>
 
-                        {/* Date / Time pickers */}
-                        {showDatePicker && (
-                            <DateTimePicker
-                                value={(formData.dueDate as Date) || new Date()}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showDatePicker}
+                            value={formData.dueDate}
+                            onChange={handleDateChange}
+                            onClose={() => setShowDatePicker(false)}
+                        />
 
-                        {showEndDatePicker && (
-                            <DateTimePicker
-                                value={(formData.endDate as Date) || new Date()}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showEndDatePicker}
+                            value={formData.endDate}
+                            onChange={handleDateChange}
+                            onClose={() => setShowEndDatePicker(false)}
+                        />
 
-                        {showTimePicker && (
-                            <DateTimePicker
-                                value={(formData.time as Date) || new Date()}
-                                mode="time"
-                                is24Hour={false}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleTimeChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showTimePicker}
+                            value={formData.time}
+                            mode="time"
+                            onChange={handleTimeChange}
+                            onClose={() => setShowTimePicker(false)}
+                        />
 
                     </ScrollView>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
@@ -764,7 +744,7 @@ const styles = StyleSheet.create({
     modalContainer: {
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 16,
-        maxHeight: '90%',
+        maxHeight: Dimensions.get('window').height * 0.9,
         overflow: 'hidden'
     },
     header: {
@@ -792,7 +772,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 20,
-        paddingBottom: 170 // Added bottom padding to prevent dropdown cut-off
+        paddingBottom: 20
     },
     inputContainer: {
         marginBottom: 16

@@ -2,13 +2,12 @@ import { Icons } from '@/assets';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import {
     Image,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -49,10 +48,10 @@ const HomeDocumentModal: React.FC<HomeDocumentModalProps> = ({
 
     // Helper function for formatting dates
     const formatDate = (date: Date) => {
-        const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return `${month}/${day}/${year}`;
     };
 
     const handleInputChange = (field: string, value: any) => {
@@ -69,26 +68,14 @@ const HomeDocumentModal: React.FC<HomeDocumentModalProps> = ({
     };
 
     const handleIssueDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowIssueDatePicker(false);
-        }
         if (selectedDate) {
             handleInputChange('issueDate', selectedDate);
-        }
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowIssueDatePicker(false);
         }
     };
 
     const handleExpirationDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowExpirationDatePicker(false);
-        }
         if (selectedDate) {
             handleInputChange('expirationDate', selectedDate);
-        }
-        if (Platform.OS === 'ios' && event.type === 'dismissed') {
-            setShowExpirationDatePicker(false);
         }
     };
 
@@ -292,24 +279,19 @@ const HomeDocumentModal: React.FC<HomeDocumentModalProps> = ({
                             </TouchableOpacity>
                         </View>
 
-                        {/* Date Pickers */}
-                        {showIssueDatePicker && (
-                            <DateTimePicker
-                                value={formData.issueDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleIssueDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showIssueDatePicker}
+                            value={formData.issueDate}
+                            onChange={handleIssueDateChange}
+                            onClose={() => setShowIssueDatePicker(false)}
+                        />
 
-                        {showExpirationDatePicker && (
-                            <DateTimePicker
-                                value={formData.expirationDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={handleExpirationDateChange}
-                            />
-                        )}
+                        <CustomDatePicker
+                            show={showExpirationDatePicker}
+                            value={formData.expirationDate}
+                            onChange={handleExpirationDateChange}
+                            onClose={() => setShowExpirationDatePicker(false)}
+                        />
                     </ScrollView>
                 </View>
             </View>

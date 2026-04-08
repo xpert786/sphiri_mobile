@@ -51,7 +51,7 @@ const CustomSwitch: React.FC<CustomSwitchProps> = ({
         const translateX = interpolate(
             switchValue.value,
             [0, 1],
-            [2, 22] // Adjust based on width (51) - thumb width (27) - padding (2) = 22
+            [2, 20] // Width (39) - Thumb width (17) - Padding (2) = 20
         );
 
         return {

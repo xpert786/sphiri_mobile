@@ -1,7 +1,7 @@
 import { Icons } from '@/assets';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import React, { useState } from 'react';
 import {
     Image,
@@ -29,7 +29,11 @@ const SnoozeReminderModal: React.FC<SnoozeReminderModalProps> = ({
     reminderDate
 }) => {
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
-    const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
+    const [customDate, setCustomDate] = useState('');
+    const getValidSnoozeDate = (dateStr: string) => {
+        const d = new Date(dateStr);
+        return (!isNaN(d.getTime()) && d.getTime() !== 0) ? d : new Date();
+    };
     const [notify, setNotify] = useState(true);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -60,7 +64,6 @@ const SnoozeReminderModal: React.FC<SnoozeReminderModalProps> = ({
     };
 
     const onDateChange = (event: any, selectedDate?: Date) => {
-        setShowDatePicker(false);
         if (selectedDate) {
             const formattedDate = selectedDate.toISOString().split('T')[0];
             setCustomDate(formattedDate);
@@ -123,14 +126,12 @@ const SnoozeReminderModal: React.FC<SnoozeReminderModalProps> = ({
                                 <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                             </TouchableOpacity>
 
-                            {showDatePicker && (
-                                <DateTimePicker
-                                    value={new Date(customDate)}
-                                    mode="date"
-                                    display="default"
-                                    onChange={onDateChange}
-                                />
-                            )}
+                            <CustomDatePicker
+                                show={showDatePicker}
+                                value={getValidSnoozeDate(customDate)}
+                                onChange={onDateChange}
+                                onClose={() => setShowDatePicker(false)}
+                            />
 
                             {/* Notification Checkbox */}
                             <View style={styles.notifyRow}>
@@ -138,7 +139,7 @@ const SnoozeReminderModal: React.FC<SnoozeReminderModalProps> = ({
                                     style={[styles.checkbox, notify && styles.checkboxChecked]}
                                     onPress={() => setNotify(!notify)}
                                 >
-                                    {notify && <Image source={Icons.ic_checkbox_tick} style={{ width: 12, height: 12, tintColor: ColorConstants.WHITE }} />}
+                                    {notify && <Image source={Icons.ic_checkbox_tick} style={{ width: 16, height: 16, tintColor: ColorConstants.WHITE }} />}
                                 </TouchableOpacity>
                                 <Text style={styles.notifyText}>Send notification when snooze period ends</Text>
                             </View>
@@ -277,9 +278,9 @@ const styles = StyleSheet.create({
         marginBottom: 24
     },
     checkbox: {
-        width: 20,
-        height: 20,
-        borderRadius: 4,
+        width: 16,
+        height: 16,
+        borderRadius: 2,
         borderWidth: 1,
         borderColor: ColorConstants.BLACK2,
         alignItems: 'center',

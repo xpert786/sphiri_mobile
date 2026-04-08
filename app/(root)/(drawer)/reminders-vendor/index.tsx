@@ -67,14 +67,9 @@ export default function RemindersVendorScreen() {
                     />
                 </View>
                 <View style={styles.detailsContainer}>
-                    <View style={styles.titleRow}>
-                        <Text style={styles.title} numberOfLines={1}>{capitalizeFirstLetter(item.title)}</Text>
-                        <View style={styles.typeTag}>
-                            <Text style={styles.typeTagText}>{item.is_overdue ? "Overdue" : "Not Overdue"}</Text>
-                        </View>
-                    </View>
+                    <Text style={styles.title} numberOfLines={1}>{capitalizeFirstLetter(item.title)}</Text>
                     {!!item.description && (
-                        <Text style={styles.description} numberOfLines={1}>{item?.category?.name}</Text>
+                        <Text style={styles.description} numberOfLines={1}>{capitalizeFirstLetter(item?.category?.name)}</Text>
                     )}
                     <Text style={styles.dueDate}>Due: {formatDate(item.reminder_date)}</Text>
                 </View>
@@ -202,7 +197,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.interSemiBold,
         color: '#111827',
         flex: 1,
-        marginRight: 8,
+        marginRight: 50,
     },
     typeTag: {
         backgroundColor: ColorConstants.LIGHT_PEACH2,

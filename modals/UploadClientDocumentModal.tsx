@@ -4,7 +4,7 @@ import CommonButton from '@/components/CommonButton';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import * as DocumentPicker from 'expo-document-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Image,
@@ -29,6 +29,13 @@ const UploadClientDocumentModal: React.FC<UploadClientDocumentModalProps> = ({
     const [docType, setDocType] = useState('');
     const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (visible) {
+            setDocType('');
+            setSelectedFile(null);
+        }
+    }, [visible]);
 
     const pickDocument = async () => {
         try {
@@ -99,7 +106,7 @@ const UploadClientDocumentModal: React.FC<UploadClientDocumentModalProps> = ({
                     {/* Upload Area */}
                     {!selectedFile ? (
                         <TouchableOpacity style={styles.uploadArea} onPress={pickDocument}>
-                            <Image source={Icons.ic_upload_file} style={styles.uploadIcon} />
+                            <Image source={Icons.ic_upload2} style={styles.uploadIcon} />
                             <Text style={styles.uploadTitle}>Click To Upload</Text>
                             <Text style={styles.uploadSubtitle}>PDF, DOC, XLS, JPG, PNG up to 10MB each</Text>
                         </TouchableOpacity>

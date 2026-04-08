@@ -7,7 +7,7 @@ import { capitalizeFirstLetter } from '@/constants/Helper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface InventoryItem {
@@ -19,6 +19,7 @@ interface InventoryItem {
     // adding other fields for future use if needed
     description?: string;
     homeowner_name?: string
+    photo_url?: string
 }
 
 export default function InventoryVendorScreen() {
@@ -33,6 +34,8 @@ export default function InventoryVendorScreen() {
         try {
             setLoading(true);
             const response = await apiGet(ApiConstants.VENDOR_HOME_INVENTORY);
+            console.log("response.data in fetchInventory:", JSON.stringify(response.data));
+
             if (response.data && response.data.results) {
                 setItems(response.data.results);
             }
@@ -47,11 +50,18 @@ export default function InventoryVendorScreen() {
         <View style={styles.card}>
             <View style={styles.cardLeft}>
                 <View style={styles.iconContainer}>
-                    <MaterialCommunityIcons
-                        name={"cube-outline"}
-                        size={30}
-                        color={ColorConstants.DARK_CYAN}
-                    />
+                    {item?.photo_url ?
+                        <Image
+                            source={{ uri: item.photo_url }}
+                            style={styles.imageInventory}
+                            resizeMode="contain"
+                        />
+                        :
+                        <MaterialCommunityIcons
+                            name={"cube-outline"}
+                            size={30}
+                            color={ColorConstants.DARK_CYAN}
+                        />}
                 </View>
                 <View style={styles.detailsContainer}>
                     <View style={styles.titleRow}>
@@ -182,6 +192,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
+    },
+    imageInventory: {
+        width: 47,
+        height: 47,
+        resizeMode: 'contain',
+        borderRadius: 8
     },
     icon: {
         width: 24,

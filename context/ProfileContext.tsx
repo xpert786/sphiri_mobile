@@ -11,6 +11,7 @@ type ProfileContextType = {
   setRole: (role: string) => void;
   resetProfile: () => void;
   isAccessBlocked: boolean;
+  role: string | null;
 };
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -95,6 +96,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         setRole,
         resetProfile,
         isAccessBlocked,
+        role,
       }}
     >
       {children}
