@@ -43,7 +43,7 @@ const DocumentCard: React.FC<Props> = ({ item }) => {
         ...(item.linkedVendors || []),
     ];
 
-    console.log("item in document card:", JSON.stringify(item));
+    // console.log("item in document card:", JSON.stringify(item));
 
 
     // Extract fileType from file_url if item.fileType is not present

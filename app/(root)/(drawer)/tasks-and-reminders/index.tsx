@@ -32,6 +32,7 @@ type Reminder = {
     description: string;
     reminder_date: string;
     reminder_time: string;
+    assigned_to_name: string;
     assigned_to_display: string;
     days_left: number;
     priority: number;
@@ -226,9 +227,9 @@ export default function TasksAndReminders() {
     const renderCalendarReminderItem = ({ item }: { item: Reminder }) => (
         <View style={styles.dailyReminderCard}>
             <View style={styles.reminderHeader}>
-                <TouchableOpacity style={styles.checkboxContainer}>
+                {/* <TouchableOpacity style={styles.checkboxContainer}>
                     <View style={styles.checkbox} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <View style={{ flex: 1 }}>
                     <View style={styles.reminderTitleRow}>
                         <View style={[styles.statusDot, { backgroundColor: item.priority_color }]} />
@@ -239,7 +240,7 @@ export default function TasksAndReminders() {
                         <Text style={styles.metaText}>{item.reminder_time}</Text>
                         <View style={styles.metaDivider} />
                         <Image source={Icons.ic_user_single} style={styles.metaIcon} />
-                        <Text style={styles.metaText}>Assigned to: {item.assigned_to_display}</Text>
+                        <Text style={styles.metaText}>Assigned to: {item.assigned_to_name}</Text>
                     </View>
                 </View>
             </View>
@@ -863,7 +864,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 8,
     },
     reminderContent: {
-        marginLeft: 32, // Indent to align with title (checkbox width + margin)
+        // marginLeft: 32, // Indent to align with title (checkbox width + margin)
     },
     reminderDescription: {
         fontSize: 13,

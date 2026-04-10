@@ -808,12 +808,12 @@ export default function ContactDetails() {
                             )}
                         />
 
-                        {selectedContact?.notes && (
+                        {/* {selectedContact?.notes && (
                             <View style={[styles.contactCard, { marginHorizontal: 0 }]}>
                                 <Text style={styles.noteTitles}>{selectedContact.notes}</Text>
                                 <Text style={styles.dateTimeText}>Initial Note</Text>
                             </View>
-                        )}
+                        )} */}
                     </View>
                 );
             default:

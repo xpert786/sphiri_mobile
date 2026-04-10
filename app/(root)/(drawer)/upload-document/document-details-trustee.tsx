@@ -4,10 +4,10 @@ import { Icons } from '@/assets';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
-import { handleDownload } from '@/constants/Helper';
+import { capitalizeFirstLetter, handleDownload } from '@/constants/Helper';
 import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
 import DocumentPreviewModal from '@/modals/DocumentPreviewModal';
-import EditDocumentModal from '@/modals/EditDocumentModal';
+import EditDocumentTrusteeModal from '@/modals/EditDocumentTrusteeModal';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, BackHandler, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -61,6 +61,15 @@ export default function DocumentDetailsTrustee() {
         try {
             const response = await apiGet(`${ApiConstants.BASE_URL}${ApiConstants.SHARED_DOCUMENTS_LIST}${params.id}/`);
             console.log("response in fetchDocumentDetails:", response.data);
+
+            if (response.data && response.data.error) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Fetch Error',
+                    text2: response.data.error,
+                });
+                return;
+            }
 
             setDocDetails(response.data);
         } catch (error) {
@@ -320,7 +329,7 @@ export default function DocumentDetailsTrustee() {
 
                             <View style={styles.infoRow}>
                                 <Text style={styles.infoLabel}>Document Title</Text>
-                                <Text style={styles.infoValue}>{docDetails?.title || 'N/A'}</Text>
+                                <Text style={styles.infoValue}>{capitalizeFirstLetter(docDetails?.title) || 'N/A'}</Text>
                             </View>
 
                             <View style={styles.infoRow}>
@@ -405,7 +414,7 @@ export default function DocumentDetailsTrustee() {
                 previewUrl={docDetails?.file_url}
             />
 
-            <EditDocumentModal
+            <EditDocumentTrusteeModal
                 visible={showEditModal}
                 onClose={() => {
                     setShowEditModal(false);

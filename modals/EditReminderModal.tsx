@@ -116,11 +116,11 @@ const EditReminderModal: React.FC<EditReminderModalProps> = ({
     };
 
     const formatDate = (date: Date) => {
-        const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
-        // API expects DD/MM/YYYY
-        return `${day}/${month}/${year}`;
+        // Matching expectation in index.tsx's formatDateToYMD (MM/DD/YYYY)
+        return `${month}/${day}/${year}`;
     };
 
     const formatDateUI = (date: Date) => {

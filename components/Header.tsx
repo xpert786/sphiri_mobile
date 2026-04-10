@@ -4,6 +4,7 @@ import { Icons } from '@/assets';
 import { UserRole } from '@/config/drawerConfig';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
+import { capitalizeFirstLetter } from '@/constants/Helper';
 import { StringConstants } from '@/constants/StringConstants';
 import { useProfile } from '@/context/ProfileContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -167,7 +168,7 @@ const Header: React.FC<CommonHeaderProps> = ({
             <View style={[styles.header, containerStyle]}>
                 {/* LEFT SIDE */}
                 <View style={styles.welcomeContainer}>
-                    <Text style={[styles.welcomeText, titleStyles]}>{title}</Text>
+                    <Text style={[styles.welcomeText, titleStyles]}>{capitalizeFirstLetter(title)}</Text>
                     {!!subtitle && (
                         <Text style={styles.subtitle}>{subtitle}</Text>
                     )}

@@ -1,11 +1,11 @@
 import { apiGet, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { MaterialIcons } from '@expo/vector-icons';
-import CustomDatePicker from '@/components/CustomDatePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
@@ -37,20 +37,16 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
     const [name, setName] = useState('');
     const [category, setCategory] = useState('');
     const [categoryName, setCategoryName] = useState('');
-    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [location, setLocation] = useState('');
-    const [purchaseDate, setPurchaseDate] = useState<Date>(new Date());
+    const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [estimatedValue, setEstimatedValue] = useState('');
     const [serialNumber, setSerialNumber] = useState('');
     const [description, setDescription] = useState('');
     const [specialOption, setSpecialOption] = useState<string | null>(null); // insured, high value, or heirloom
-    // const [serviceAgreement, setServiceAgreement] = useState<string | number>('');
-    // const [serviceAgreementName, setServiceAgreementName] = useState('');
     const [vendor, setVendor] = useState<string | number>('');
     const [vendorName, setVendorName] = useState('');
 
-    // const [showServiceAgreementDropdown, setShowServiceAgreementDropdown] = useState(false);
     const [showVendorDropdown, setShowVendorDropdown] = useState(false);
 
     const [vendorsList, setVendorsList] = useState<any[]>([]);
@@ -75,10 +71,6 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
                 apiGet(ApiConstants.VENDORS_LIST_CONTACTS),
                 apiGet(ApiConstants.HOME_INVENTORY_CATEGORIES)
             ]);
-
-            // if (optionsRes.data) {
-            //     setServiceAgreementsList(optionsRes.data.documents || []);
-            // }
             if (contactsRes.data) {
                 setVendorsList(contactsRes.data || []);
             }
@@ -383,7 +375,7 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
         setSelectedSubCategory(null);
         setSelectedDetailedCategory(null);
         setLocation('');
-        setPurchaseDate(new Date());
+        setPurchaseDate(null);
         setEstimatedValue('');
         setSerialNumber('');
         setDescription('');
@@ -457,7 +449,7 @@ const AddHomeInventoryModal: React.FC<AddHomeInventoryModalProps> = ({
                                         activeOpacity={0.8}
                                     >
                                         <Text style={[styles.inputText, { color: purchaseDate ? ColorConstants.BLACK2 : ColorConstants.GRAY }]}>
-                                            {purchaseDate ? `${String(purchaseDate.getMonth() + 1).padStart(2, '0')}/${String(purchaseDate.getDate()).padStart(2, '0')}/${purchaseDate.getFullYear()}` : 'Select Purchase Date'}
+                                            {purchaseDate ? `${String(purchaseDate.getMonth() + 1).padStart(2, '0')}/${String(purchaseDate.getDate()).padStart(2, '0')}/${purchaseDate.getFullYear()}` : 'MM/DD/YYYY'}
                                         </Text>
                                         <Image source={Icons.ic_calendar_outline} style={styles.calendarIcon} />
                                     </TouchableOpacity>
@@ -701,7 +693,7 @@ const styles = StyleSheet.create({
         backgroundColor: ColorConstants.WHITE,
         borderRadius: 24,
         overflow: 'hidden',
-        maxHeight: Dimensions.get('window').height * 0.9,
+        maxHeight: Dimensions.get('window').height * 0.85,
     },
     viewContainer: {
         padding: 24,

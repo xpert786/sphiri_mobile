@@ -113,6 +113,7 @@ interface ApiDocument {
     is_shared: boolean;
     property_name: string | null;
     tag_names: string[] | null;
+    tags: number[] | null;
     created_at: string;
     updated_at: string;
 }
@@ -178,6 +179,7 @@ export default function HomeOnwerDoc() {
 
     const [documents, setDocuments] = useState<DocumentItem[]>([]); // Changed to state
     const [isLoading, setIsLoading] = useState(false); // Added loading state
+    const [allTags, setAllTags] = useState<any[]>([]); // Added tags master list
     const [categories, setCategories] = useState<FolderItem[]>([]); // Added category state
     const [isCategoriesLoading, setIsCategoriesLoading] = useState(false); // Added category loading state
 
@@ -194,6 +196,7 @@ export default function HomeOnwerDoc() {
         setIsCategoriesLoading(true);
         try {
             // Fetch all in parallel
+            console.log("Starting init fetch...");
             const [docsResponse, categoriesResponse, defaultCategoriesResponse, propertiesResponse, tagsResponse] = await Promise.all([
                 apiGet(ApiConstants.HOMEOWNER_DOCUMENTS),
                 apiGet(ApiConstants.MY_FOLDERS_LIST),
@@ -208,10 +211,16 @@ export default function HomeOnwerDoc() {
             const propsData = propertiesResponse.data;
             const tagsData = tagsResponse.data;
 
+            console.log("init - docsResponse:", JSON.stringify(docsResponse));
+
             // Sync API Categories for filter
-            const defaultCatItems = Array.isArray(defaultCatsData) ? defaultCatsData : (defaultCatsData.results || []);
-            const catNames = defaultCatItems.map((c: any) => c.name);
-            setApiCategoryOptions(['All', ...catNames]);
+            const dCatsInit = Array.isArray(defaultCatsData) ? defaultCatsData : (defaultCatsData.results || []);
+            const cCatsInit = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
+            const mergedCatNamesInit = Array.from(new Set([
+                ...dCatsInit.map((c: any) => c.name),
+                ...cCatsInit.map((c: any) => c.name)
+            ])).filter(Boolean);
+            setApiCategoryOptions(['All', ...mergedCatNamesInit]);
 
             // Sync API Properties for filter
             const propItems = Array.isArray(propsData) ? propsData : (propsData.results || []);
@@ -220,6 +229,7 @@ export default function HomeOnwerDoc() {
 
             // Sync API Tags for filter
             const tagItems = Array.isArray(tagsData) ? tagsData : (tagsData.results || []);
+            setAllTags(tagItems);
             const tagNames = tagItems.map((t: any) => t.name);
             setApiTagOptions(['All', ...tagNames]);
 
@@ -231,7 +241,9 @@ export default function HomeOnwerDoc() {
                 badgeText: doc.category_name || doc.file_type,
                 folderName: doc.category_name || 'Uncategorized',
                 propertyName: doc.property_name || 'All', // Assuming property_name is available
-                tags: doc.tag_names || [],
+                tags: doc.tag_names && doc.tag_names.length > 0
+                    ? doc.tag_names
+                    : (doc.tags ? doc.tags.map((id: number) => tagItems.find((t: any) => t.id === id)?.name).filter(Boolean) : []),
                 fileType: doc.file_type,
                 fileSize: doc.file_size_display,
                 uploadedBy: doc.uploaded_by,
@@ -252,7 +264,10 @@ export default function HomeOnwerDoc() {
             // Process categories with documents for "Folder Management" tab
             const categoriesToTransform = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
             const transformedFolders = transformCategoriesToFolders(categoriesToTransform, docsData.results);
-            setCategories(transformedFolders);
+
+            // Sort by id descending so newest appear at the top
+            const sortedFolders = [...transformedFolders].sort((a, b) => Number(b.id) - Number(a.id));
+            setCategories(sortedFolders);
 
         } catch (error) {
             console.error("Initialization error:", error);
@@ -271,6 +286,7 @@ export default function HomeOnwerDoc() {
         setIsCategoriesLoading(true);
         try {
             // We need documents too to match them
+            console.log("Starting fetchCategories...");
             const [docsResponse, categoriesResponse, defaultCategoriesResponse] = await Promise.all([
                 apiGet(ApiConstants.HOMEOWNER_DOCUMENTS),
                 apiGet(ApiConstants.MY_FOLDERS_LIST),
@@ -281,14 +297,24 @@ export default function HomeOnwerDoc() {
             const categoriesData = categoriesResponse.data;
             const defaultCatsData = defaultCategoriesResponse.data;
 
+            console.log("docsResponse:", docsResponse);
+
+
             // Sync API Categories for filter
-            const defaultCatItems = Array.isArray(defaultCatsData) ? defaultCatsData : (defaultCatsData.results || []);
-            const catNames = defaultCatItems.map((c: any) => c.name);
-            setApiCategoryOptions(['All', ...catNames]);
+            const dCatsFetch = Array.isArray(defaultCatsData) ? defaultCatsData : (defaultCatsData.results || []);
+            const cCatsFetch = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
+            const mergedCatNamesFetch = Array.from(new Set([
+                ...dCatsFetch.map((c: any) => c.name),
+                ...cCatsFetch.map((c: any) => c.name)
+            ])).filter(Boolean);
+            setApiCategoryOptions(['All', ...mergedCatNamesFetch]);
 
             const categoriesToTransform = Array.isArray(categoriesData) ? categoriesData : (categoriesData.results || []);
             const transformedFolders = transformCategoriesToFolders(categoriesToTransform, docsData.results);
-            setCategories(transformedFolders);
+
+            // Sort by id descending so newest appear at the top
+            const sortedFolders = [...transformedFolders].sort((a, b) => Number(b.id) - Number(a.id));
+            setCategories(sortedFolders);
 
             // Also update the documents state while we're at it
             const today = new Date().toISOString().split('T')[0];
@@ -297,8 +323,20 @@ export default function HomeOnwerDoc() {
                 title: doc.title,
                 badgeText: doc.category_name || doc.file_type,
                 folderName: doc.category_name || 'Uncategorized',
+                propertyName: doc.property_name || 'All',
+                tags: doc.tag_names && doc.tag_names.length > 0
+                    ? doc.tag_names
+                    : (doc.tags ? doc.tags.map((id: number) => allTags.find((t: any) => t.id === id)?.name).filter(Boolean) : []),
+                fileType: doc.file_type,
+                fileSize: doc.file_size_display,
+                uploadedBy: doc.uploaded_by,
                 issuedDate: doc.issue_date,
                 expirationDate: doc.expiration_date,
+                status: doc.status,
+                isShared: doc.is_shared,
+                linkedContacts: doc.linked_contacts || [],
+                linkedFamilyMembers: doc.linked_family_members || [],
+                linkedVendors: doc.linked_vendors || [],
                 versionCount: doc.version,
                 isLocked: false,
                 isExpiringSoon: doc.expiration_date === today,
@@ -410,21 +448,9 @@ export default function HomeOnwerDoc() {
     };
 
     const handleCreateFolder = (data: any) => {
-        console.log('Folder created:', data);
+        console.log('Folder created event:', data);
         setNewFolderModalVisible(false);
-
-        // Optimistic update: directly add the new folder to the list
-        if (data && data.id) {
-            const newFolder: FolderItem = {
-                id: data.id.toString(),
-                name: data.name || 'New Folder',
-                docCount: data.document_count || 0,
-                subFolders: [],
-                files: [],
-            };
-            setCategories(prev => [...prev, newFolder]);
-        }
-
+        fetchCategories(); // Refetch to ensure the UI is in sync with server state
     };
 
     const toggleDocFilter = (id: string) => {

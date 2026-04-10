@@ -660,7 +660,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                             <Text style={styles.notificationLabel}>Email</Text>
                         </View>
 
-                        {/* <View style={styles.notificationRow}>
+                        <View style={styles.notificationRow}>
                             <Switch
                                 trackColor={{ false: '#E0E0E0', true: ColorConstants.PRIMARY_BROWN }}
                                 thumbColor={ColorConstants.WHITE}
@@ -669,7 +669,7 @@ const NewReminderModal: React.FC<NewReminderModalProps> = ({
                                 style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
                             />
                             <Text style={styles.notificationLabel}>Push Notification</Text>
-                        </View> */}
+                        </View>
 
                         <View style={[styles.notificationRow, { marginBottom: 14 }]}>
                             <Switch

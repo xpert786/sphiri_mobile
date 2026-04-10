@@ -4,12 +4,14 @@ import { Icons } from '@/assets';
 import Header from '@/components/Header';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
+import { capitalizeFirstLetter } from '@/constants/Helper';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Image,
+    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -26,7 +28,7 @@ interface FamilyMemberPermissions {
     invitee_email: string;
     nickname: string;
     relationship: string;
-    role: string;
+    role_display: string;
     has_emergency_access: boolean;
     can_view_contacts: boolean;
     can_edit_contacts: boolean;
@@ -38,18 +40,18 @@ interface FamilyMemberPermissions {
     can_edit_reminders: boolean;
     can_delete_reminders: boolean;
     full_name: string;
+    status: string;
 }
 
 export default function Permissions() {
     const params = useLocalSearchParams();
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
     const [member, setMember] = useState<Partial<FamilyMemberPermissions>>(
         params.member ? JSON.parse(params.member as string) : {
-            full_name: 'Sarah Johnson',
-            invitee_email: 'sarah@example.com',
-            role: 'Co-manager',
-            status: 'active',
+            full_name: '',
+            invitee_email: '',
+            role: '',
+            status: '',
         }
     );
 
@@ -63,6 +65,8 @@ export default function Permissions() {
         try {
             setLoading(true);
             const response = await apiGet(`${ApiConstants.MEMBERS}${member.id}/`);
+            console.log("response in member:", response.data);
+
             if (response.data) {
                 setMember(response.data);
             }
@@ -81,9 +85,13 @@ export default function Permissions() {
             ...prev,
             [key]: newValue
         }));
+        console.log("payload in handleToggle", { [key]: newValue });
+
 
         try {
             const response = await apiPatch(`${ApiConstants.MEMBERS}${member.id}/`, { [key]: newValue });
+            console.log("response in patch api of membvers:", response.data);
+
             if (!(response.status === 200 || response.status === 204)) {
                 throw new Error('Update failed');
             }
@@ -97,9 +105,36 @@ export default function Permissions() {
             Alert.alert('Error', 'Failed to update permission');
         }
     };
+    const getMemberInitials = () => {
+        const name = member?.full_name || `${member?.first_name || ''} ${member?.last_name || ''}`.trim();
+        if (!name) return (member?.invitee_email?.[0] || '?').toUpperCase();
+        const parts = name.split(' ').filter(Boolean);
+        const first = parts[0]?.[0] ?? '';
+        const second = parts[1]?.[0] ?? '';
+        return (first + second).toUpperCase() || (name[0]?.toUpperCase() ?? '?');
+    };
+
+    const getPermissionSubtitle = (keys: { view: keyof FamilyMemberPermissions, edit: keyof FamilyMemberPermissions, delete: keyof FamilyMemberPermissions }) => {
+        const v = member[keys.view] as boolean;
+        const e = member[keys.edit] as boolean;
+        const d = member[keys.delete] as boolean;
+
+        if (v && e && d) return 'Full Access';
+        if (!v && !e && !d) return 'No Access';
+
+        const activePermissions = [];
+        if (v) activePermissions.push('View');
+        if (e) activePermissions.push('Edit');
+        if (d) activePermissions.push('Delete');
+
+        if (activePermissions.length === 1) {
+            return `${activePermissions[0]} only`;
+        } else {
+            return `${activePermissions[0]} and ${activePermissions[1]} only`;
+        }
+    };
 
     const renderPermissionCard = (title: string, icon: any, keys: { view: keyof FamilyMemberPermissions, edit: keyof FamilyMemberPermissions, delete: keyof FamilyMemberPermissions }) => {
-        const isEditing = member[keys.edit];
         return (
             <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -108,7 +143,7 @@ export default function Permissions() {
                     </View>
                     <View style={styles.headerText}>
                         <Text style={styles.cardTitle}>{title}</Text>
-                        <Text style={styles.cardSubtitle}>{isEditing ? 'View & Edit' : 'View Only'}</Text>
+                        <Text style={styles.cardSubtitle}>{getPermissionSubtitle(keys)}</Text>
                     </View>
                 </View>
 
@@ -120,6 +155,7 @@ export default function Permissions() {
                             onValueChange={() => handleToggle(keys.view)}
                             trackColor={{ false: '#E0E0E0', true: ColorConstants.PRIMARY_BROWN }}
                             thumbColor={ColorConstants.WHITE}
+                            style={styles.switch}
                         />
                     </View>
                     <View style={styles.switchRow}>
@@ -129,6 +165,7 @@ export default function Permissions() {
                             onValueChange={() => handleToggle(keys.edit)}
                             trackColor={{ false: '#E0E0E0', true: ColorConstants.PRIMARY_BROWN }}
                             thumbColor={ColorConstants.WHITE}
+                            style={styles.switch}
                         />
                     </View>
                     <View style={styles.switchRow}>
@@ -138,6 +175,7 @@ export default function Permissions() {
                             onValueChange={() => handleToggle(keys.delete)}
                             trackColor={{ false: '#E0E0E0', true: ColorConstants.PRIMARY_BROWN }}
                             thumbColor={ColorConstants.WHITE}
+                            style={styles.switch}
                         />
                     </View>
                 </View>
@@ -165,16 +203,18 @@ export default function Permissions() {
             ) : (
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     <View style={styles.memberProfile}>
-                        <Image source={Icons.dummy_user1} style={styles.avatar} />
+                        <View style={styles.memberInitialsCircle}>
+                            <Text style={styles.memberInitialsText}>{getMemberInitials()}</Text>
+                        </View>
                         <View style={styles.memberMeta}>
-                            <Text style={styles.memberName}>{member.full_name || `${member.first_name} ${member.last_name}`}</Text>
-                            <Text style={styles.memberEmail}>{member.invitee_email}</Text>
+                            <Text style={styles.memberName}>{member?.full_name || `${member?.first_name} ${member?.last_name}`}</Text>
+                            <Text style={styles.memberEmail}>{member?.invitee_email}</Text>
                             <View style={styles.badgeRow}>
                                 <View style={styles.roleBadge}>
-                                    <Text style={styles.roleText}>{member.role}</Text>
+                                    <Text style={styles.roleText}>{member?.role_display}</Text>
                                 </View>
                                 <View style={styles.statusTag}>
-                                    <Text style={styles.statusText}>Active</Text>
+                                    <Text style={styles.statusText}>{capitalizeFirstLetter(member?.status)}</Text>
                                 </View>
                             </View>
                         </View>
@@ -183,7 +223,7 @@ export default function Permissions() {
                     <View style={styles.permissionsView}>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Content Permissions</Text>
-                            <Text style={styles.sectionSubtitle}>Manage what {member.full_name || member.first_name} can access</Text>
+                            <Text style={styles.sectionSubtitle}>Manage what {member?.full_name || member?.first_name} can access</Text>
                         </View>
 
                         {renderPermissionCard('Contact', Icons.ic_users, {
@@ -253,6 +293,20 @@ const styles = StyleSheet.create({
         height: 64,
         borderRadius: 32,
         marginRight: 16
+    },
+    memberInitialsCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        marginRight: 16,
+        backgroundColor: ColorConstants.LIGHT_PEACH3,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    memberInitialsText: {
+        fontFamily: Fonts.ManropeSemiBold,
+        fontSize: 24,
+        color: ColorConstants.BLACK2,
     },
     memberMeta: {
         flex: 1
@@ -377,5 +431,12 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.ManropeMedium,
         fontSize: 14,
         color: ColorConstants.BLACK2
+    },
+    switch: {
+        transform: [
+            { scaleX: Platform.OS === 'ios' ? 0.8 : 1.0 },
+            { scaleY: Platform.OS === 'ios' ? 0.8 : 1.0 }
+        ],
+        marginRight: Platform.OS === 'ios' ? -5 : 0,
     }
 });

@@ -26,6 +26,7 @@ interface SharedDocument {
     title: string;
     file_type: string;
     file_size_display: string;
+    category: number;
     category_name: string | null;
     issue_date: string;
     expiration_date: string;
@@ -93,6 +94,7 @@ export default function TrusteeDoc() {
     const [activeTab, setActiveTab] = useState('Documents');
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('All categories');
+    const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
     const [expandedId, setExpandedId] = useState<number | null>(1);
     const [menuId, setMenuId] = useState<number | null>(null);
     const [activeFileMenu, setActiveFileMenu] = useState<string | null>(null);
@@ -112,12 +114,20 @@ export default function TrusteeDoc() {
     // New state for Shared Folders
     const [sharedFolders, setSharedFolders] = useState<SharedFolder[]>([]);
 
-    const fetchDocuments = async (page = 1, search = '') => {
+    const fetchDocuments = async (page = 1, search = '', categoryId: number | null = null) => {
         setIsLoading(true);
         try {
-            const response = await apiGet(`${ApiConstants.BASE_URL}${ApiConstants.SHARED_DOCUMENTS_LIST}?page=${page}&page_size=4&search=${search}`);
+            const categoryParam = categoryId ? `&category=${categoryId}` : '';
+            const response = await apiGet(`${ApiConstants.BASE_URL}${ApiConstants.SHARED_DOCUMENTS_LIST}?page=${page}&page_size=4&search=${search}${categoryParam}`);
+            console.log("data in fetchDocuments:", JSON.stringify(response.data));
             const data: SharedDocumentsResponse = response.data;
-            setDocuments(data.results);
+            
+            // Client-side fallback filter
+            const filteredResults = categoryId 
+                ? (data.results || []).filter(doc => doc.category === categoryId)
+                : data.results;
+
+            setDocuments(filteredResults);
             setCategories(data.categories);
             setTotalPages(Math.ceil(data.count / 4));
             setCurrentPage(page);
@@ -132,7 +142,7 @@ export default function TrusteeDoc() {
         try {
             const response = await apiGet(`${ApiConstants.BASE_URL}${ApiConstants.SHARED_FOLDERS}`);
             const data: SharedFolder[] = response.data;
-            console.log("data in fetchSharedFolders:", data);
+            // console.log("data in fetchSharedFolders:", data);
 
             setSharedFolders(data);
         } catch (error) {
@@ -203,8 +213,8 @@ export default function TrusteeDoc() {
 
     useFocusEffect(
         React.useCallback(() => {
-            fetchDocuments(currentPage, searchQuery);
-        }, [currentPage, searchQuery]) // Re-fetch when page or search query changes
+            fetchDocuments(currentPage, searchQuery, selectedCategoryId);
+        }, [currentPage, searchQuery, selectedCategoryId]) // Re-fetch when page, search query, or category changes
     );
 
     useFocusEffect(
@@ -477,8 +487,9 @@ export default function TrusteeDoc() {
                                         style={styles.dropdownItem}
                                         onPress={() => {
                                             setSelectedCategory('All categories');
+                                            setSelectedCategoryId(null);
                                             setIsCategoryOpen(false);
-                                            // Ideally filter by category here too if API supports it
+                                            setCurrentPage(1);
                                         }}
                                     >
                                         <Text style={styles.dropdownItemText}>All categories</Text>
@@ -489,8 +500,9 @@ export default function TrusteeDoc() {
                                             style={styles.dropdownItem}
                                             onPress={() => {
                                                 setSelectedCategory(cat.name);
+                                                setSelectedCategoryId(cat.id);
                                                 setIsCategoryOpen(false);
-                                                // Implement category filtering if API supports or client side
+                                                setCurrentPage(1);
                                             }}
                                         >
                                             <View style={styles.itemContent}>
@@ -527,7 +539,7 @@ export default function TrusteeDoc() {
                                         >
                                             <View style={styles.cardHeader}>
                                                 <View style={styles.headerTitleRow}>
-                                                    <Text style={styles.cardTitle}>{doc.title}</Text>
+                                                    <Text style={styles.cardTitle}>{capitalizeFirstLetter(doc.title)}</Text>
 
                                                     <View style={styles.headerActions}>
                                                         <TouchableOpacity

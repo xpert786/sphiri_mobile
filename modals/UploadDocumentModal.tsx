@@ -1,11 +1,11 @@
 import { apiGet, apiPatch, apiPost } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomTextInput from '@/components/CustomTextInput';
 import { ColorConstants } from '@/constants/ColorConstants';
 import { Fonts } from '@/constants/Fonts';
 import { StringConstants } from '@/constants/StringConstants';
-import CustomDatePicker from '@/components/CustomDatePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
@@ -285,6 +285,8 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
         try {
             const response = await apiGet(ApiConstants.DEFAULT_CATEGORIES);
             const dataArr = Array.isArray(response.data) ? response.data : (response.data?.results || []);
+            console.log("dataArr in fetchDefaultCategories:", dataArr);
+
             setDefaultCategories(dataArr);
         } catch (error) {
             console.error('Error fetching default categories:', error);
@@ -781,7 +783,7 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
                                                     key={cat.id}
                                                     style={styles.dropdownMenuItem}
                                                     onPress={() => {
-                                                        setFormData(prev => ({ ...prev, category: cat.name, category_id: cat.id }));
+                                                        setFormData(prev => ({ ...prev, category: cat.name, category_id: cat.id, folder: '', folder_id: null }));
                                                         setShowCategoryDropdown(false);
                                                     }}
                                                 >
@@ -814,7 +816,7 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
                                                     key={cat.id}
                                                     style={styles.dropdownMenuItem}
                                                     onPress={() => {
-                                                        setFormData(prev => ({ ...prev, folder: cat.name, folder_id: cat.id }));
+                                                        setFormData(prev => ({ ...prev, folder: cat.name, folder_id: cat.id, category: '', category_id: null }));
                                                         setShowFolderDropdown(false);
                                                     }}
                                                 >
@@ -1099,8 +1101,8 @@ const UploadDocumentModal: React.FC<UploadDocumentProps> = ({
                                     <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
                                         {(() => {
                                             const query = professionalContactSearchQuery.toLowerCase();
-                                            const filteredContacts = professionalContacts.filter(c => 
-                                                c.name.toLowerCase().includes(query) || 
+                                            const filteredContacts = professionalContacts.filter(c =>
+                                                c.name.toLowerCase().includes(query) ||
                                                 (c.company && c.company.toLowerCase().includes(query))
                                             );
                                             if (filteredContacts.length === 0) {

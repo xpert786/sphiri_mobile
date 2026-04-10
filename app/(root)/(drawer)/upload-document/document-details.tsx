@@ -9,7 +9,11 @@ import DeleteConfirmationModal from '@/modals/DeleteConfirmationModal';
 import DocumentPreviewModal from '@/modals/DocumentPreviewModal';
 import EditDocumentModal from '@/modals/EditDocumentModal';
 import RemoveTrusteeModal from '@/modals/RemoveTrusteeModal';
+import { StringConstants } from '@/constants/StringConstants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -189,16 +193,57 @@ export default function DocumentDetails() {
     };
 
     const handleDownload = async () => {
+        if (!documentId) return;
         setActiveAction('download');
         try {
-            const response = await apiGet(`${ApiConstants.HOMEOWNER_DOCUMENTS}${documentId}/download/`);
-            if (response.status === 200 && response.data?.file_url) {
-                Linking.openURL(response.data.file_url).catch(err => {
-                    console.error('Failed to open download URL:', err);
-                });
+            const token = await AsyncStorage.getItem(StringConstants.ACCESS_TOKEN);
+            const downloadUrl = `${ApiConstants.BASE_URL}${ApiConstants.HOMEOWNER_DOCUMENTS}${documentId}/download/`;
+            
+            // Generate a clean filename
+            const cleanTitle = (documentDetails?.title || 'document').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const destination = new File(Paths.cache, `${cleanTitle}.pdf`);
+
+            // If file already exists, delete it to avoid "Destination already exists" error
+            if (destination.exists) {
+                console.log("Deleting existing file at path:", destination.uri);
+                destination.delete();
             }
+
+            console.log("Starting download from:", downloadUrl);
+
+            await File.downloadFileAsync(
+                downloadUrl,
+                destination,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    idempotent: true,
+                }
+            );
+
+            console.log("Download finished:", destination.uri);
+            
+            // Check if sharing is available
+            if (!(await Sharing.isAvailableAsync())) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Sharing is not available on this device',
+                });
+                return;
+            }
+
+            await Sharing.shareAsync(destination.uri);
         } catch (error) {
-            console.error('Error fetching download URL:', error);
+            console.error('Error downloading file:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Download Failed',
+                text2: 'Failed to download document. Please try again.',
+            });
+        } finally {
+            setActiveAction('');
         }
     };
 
@@ -206,7 +251,7 @@ export default function DocumentDetails() {
         try {
             setIsDeleting(true);
             const response = await apiDelete(`${ApiConstants.HOMEOWNER_DOCUMENTS}${documentId}/`);
-            
+
             // Check for 204 No Content or 200 Success
             if (response.status === 204 || response.status === 200) {
                 Toast.show({

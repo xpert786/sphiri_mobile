@@ -1,4 +1,4 @@
-import { apiGet, apiPatch } from '@/api/apiMethods';
+import { apiDelete, apiGet, apiPatch } from '@/api/apiMethods';
 import { ApiConstants } from '@/api/endpoints';
 import { Icons } from '@/assets';
 import CommonButton from '@/components/CommonButton';
@@ -187,6 +187,32 @@ export default function Family() {
         }
     };
 
+    const handleDeleteMember = async () => {
+        if (!selectedMember) return;
+        try {
+            setLoading(true);
+            const response = await apiDelete(`${ApiConstants.MEMBERS}${selectedMember.id}/`);
+            if (response.status === 200 || response.status === 204) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Family member deleted successfully'
+                });
+                setDeleteModalVisible(false);
+                fetchFamilyMembers();
+            }
+        } catch (error) {
+            console.error('Error deleting member:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete family member'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getMemberDisplayName = (member: FamilyMember) => {
         if (member.invitee_name) return member.invitee_name;
         const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim();
@@ -298,17 +324,17 @@ export default function Family() {
             </View>
             <View style={styles.activityContent}>
                 <Text style={styles.activityText}>
-                    <Text style={styles.activityName}>{item.member_name}</Text>
-                    <Text style={styles.activityAction}> {item.action_display} </Text>
-                    <Text style={styles.activityTarget}>{item.content_title}</Text>
+                    <Text style={styles.activityName}>{item?.member_name}</Text>
+                    <Text style={styles.activityAction}> {item?.action_display} </Text>
+                    <Text style={styles.activityTarget}>{item?.content_title}</Text>
                 </Text>
                 <View style={styles.activityMeta}>
                     <View style={styles.typeTag}>
-                        <Text style={styles.typeText}>{item.content_type_display}</Text>
+                        <Text style={styles.typeText}>{item?.content_type_display}</Text>
                     </View>
-                    <Text style={styles.timeText}>{item.time_ago}</Text>
+                    <Text style={styles.timeText}>{item?.time_ago}</Text>
                 </View>
-                {item.description ? <Text style={styles.subtext}>{item.description}</Text> : null}
+                {item?.description ? <Text style={styles.subtext}>{item?.description}</Text> : null}
             </View>
         </View>
     );
@@ -454,10 +480,7 @@ export default function Family() {
             <DeleteConfirmationModal
                 visible={deleteModalVisible}
                 onClose={() => setDeleteModalVisible(false)}
-                onDelete={() => {
-                    console.log('Delete Member:', selectedMember?.id);
-                    setDeleteModalVisible(false);
-                }}
+                onDelete={handleDeleteMember}
                 title={`Are you sure you want to delete “${selectedMember?.invitee_name || `${selectedMember?.first_name} ${selectedMember?.last_name}`}” Family Member?`}
             />
         </SafeAreaView>
